@@ -376,6 +376,37 @@
             margin-bottom: 12px;
             -webkit-overflow-scrolling: touch;
         }
+        .best-section {
+            margin-bottom: 12px;
+            text-align: left;
+            background: #faf8ff;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .best-section h4 {
+            margin: 0 0 8px;
+            font-size: 14px;
+            color: #6d5e9c;
+        }
+        .best-section table {
+            width: 100%;
+            font-size: 13px;
+            border-collapse: collapse;
+        }
+        .best-section th,
+        .best-section td {
+            padding: 3px;
+            text-align: center;
+            border-bottom: 1px solid #e8e2f2;
+        }
+        .best-section th {
+            font-weight: 600;
+            color: #6d5e9c;
+        }
+        .best-section td:last-child {
+            font-weight: 600;
+            color: #2e7d32;
+        }
         #leaderboard-table {
             width: 100%;
             border-collapse: collapse;
@@ -533,7 +564,7 @@
 
         // ===================== 外链资源（可自行替换成你自己的地址） =====================
         const CLICK_SOUND_URL = 'https://cdn.jsdelivr.net/gh/lll166/yuelegeba/音效.mp3';
-        const LEVEL5_IMAGE_URL = 'https://picsum.photos/seed/yuelegeba/game-win-sound.mp3';
+        const LEVEL5_IMAGE_URL = 'https://picsum.photos/seed/yuelegeba/game-win-sound';
 
         // ===================== 歌曲列表（可替换为任意外链MP3） =====================
         const SONGS = [
@@ -1090,9 +1121,30 @@
             fallbackClick();
         }
 
-        // ===================== 排行榜 / 计时 =====================
+        // ===================== 排行榜 / 计时（含分关卡最佳成绩） =====================
         const STORAGE_KEY = 'yuelegeba_leaderboard';
+        const BEST_STORAGE_KEY = 'yuelegeba_best';
         let roundStartTime = null;
+
+        function loadBestRecords() {
+            try { return JSON.parse(localStorage.getItem(BEST_STORAGE_KEY) || '[]'); } catch (e) { return []; }
+        }
+
+        function saveBestRecord(level, time) {
+            let records = loadBestRecords();
+            let found = false;
+            for (let i = 0; i < records.length; i++) {
+                if (records[i].level === level) {
+                    if (time < records[i].bestTime) {
+                        records[i].bestTime = time;
+                    }
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) records.push({ level: level, bestTime: time });
+            try { localStorage.setItem(BEST_STORAGE_KEY, JSON.stringify(records)); } catch (e) {}
+        }
 
         function startRoundTimer() {
             roundStartTime = Date.now();
@@ -1101,8 +1153,9 @@
         function finishRound(win) {
             if (roundStartTime === null) return;
             const elapsed = ((Date.now() - roundStartTime) / 1000).toFixed(1);
+            const level = Math.min(levelIndex + 1, LEVELS.length);
             const record = {
-                level: Math.min(levelIndex + 1, LEVELS.length),
+                level: level,
                 time: elapsed,
                 result: win ? '成功' : '失败',
                 date: new Date().toLocaleString()
@@ -1112,22 +1165,47 @@
             records.push(record);
             if (records.length > 100) records = records.slice(-100);
             try { localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); } catch (e) {}
+
+            if (win) {
+                saveBestRecord(level, parseFloat(elapsed));
+            }
             roundStartTime = null;
         }
 
         function renderLeaderboard() {
+            // 1. 分关卡最佳成绩
+            const bestRecords = loadBestRecords();
+            let bestHtml = '';
+            if (bestRecords.length) {
+                let rows = '';
+                for (const rec of bestRecords) {
+                    rows += `<tr><td>第${rec.level}关</td><td>${rec.bestTime}秒</td></tr>`;
+                }
+                bestHtml = `
+                    <div class="best-section">
+                        <h4>🏅 分关卡最佳成绩</h4>
+                        <table>
+                            <thead><tr><th>关卡</th><th>最佳用时</th></tr></thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>`;
+            } else {
+                bestHtml = '<div class="best-section" style="text-align:center;font-size:13px;color:#999;">分关卡最佳成绩：暂无</div>';
+            }
+
+            // 2. 全部通关/失败记录
             let records = [];
             try { records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { records = []; }
             const body = document.getElementById('leaderboard-body');
             if (!records.length) {
-                body.innerHTML = '<div class="empty-tip">暂无记录，快来玩一局吧～</div>';
+                body.innerHTML = bestHtml + '<div class="empty-tip">暂无记录，快来玩一局吧～</div>';
                 return;
             }
             const rows = [...records].reverse().map(r => {
                 const cls = r.result === '成功' ? 'win' : 'fail';
                 return `<tr><td>第${r.level}关</td><td>${r.time}秒</td><td class="${cls}">${r.result}</td><td>${r.date}</td></tr>`;
             }).join('');
-            body.innerHTML = `<table id="leaderboard-table"><thead><tr><th>关卡</th><th>用时</th><th>结果</th><th>完成时间</th></tr></thead><tbody>${rows}</tbody></table>`;
+            body.innerHTML = bestHtml + `<table id="leaderboard-table"><thead><tr><th>关卡</th><th>用时</th><th>结果</th><th>完成时间</th></tr></thead><tbody>${rows}</tbody></table>`;
         }
 
         function openModal(id) {
@@ -1212,6 +1290,7 @@
         document.getElementById('btn-leaderboard-clear').addEventListener('click', () => {
             if (confirm('确定清空全部记录吗？')) {
                 localStorage.removeItem(STORAGE_KEY);
+                localStorage.removeItem(BEST_STORAGE_KEY);
                 renderLeaderboard();
             }
         });
