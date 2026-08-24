@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <title>堆叠消除 · 羊了个羊</title>
+    <style>
+        /* ======= 全局重置 ======= */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #d6ccef; /* 淡紫色背景 */
+        }
+
+        /* ======= 游戏容器 ======= */
+        #game {
+            max-width: 500px;
+            height: 100vh;
+            height: 100dvh;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            background: #f4f2fa; /* 极浅灰紫，商务简约 */
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.15);
+        }
+
+        /* ======= 头部 ======= */
+        #header {
+            height: 58px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            background: #ffffff;
+            border-bottom: 1px solid #e5e0ef;
+            padding: 0 16px;
+        }
+        #header .title {
+            font-size: 19px;
+            font-weight: 600;
+            color: #3d3a55;
+            letter-spacing: 1px;
+        }
+        #header .level-badge {
+            font-size: 13px;
+            background: #f0ecf9;
+            color: #6d5e9c;
+            border-radius: 24px;
+            padding: 4px 16px;
+            font-weight: 500;
+            border: 1px solid #dcd4f0;
+        }
+
+        /* ======= 牌堆区域 ======= */
+        #board-wrapper {
+            flex: 1;
+            min-height: 0;
+            position: relative;
+            margin: 10px 12px 4px;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+            border: 1px solid #e9e4f2;
+        }
+        #board {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ======= 卡牌 ======= */
+        .tile {
+            position: absolute;
+            width: 52px;
+            height: 52px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            background: #ffffff;
+            border: 1px solid #d6d6e3;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            user-select: none;
+            -webkit-user-select: none;
+            transition: transform 0.12s, box-shadow 0.12s, filter 0.12s;
+            will-change: transform;
+        }
+        .tile.exposed {
+            cursor: pointer;
+            border-color: #8f7cb4;
+            background: #ffffff;
+            box-shadow: 0 3px 12px rgba(116, 94, 168, 0.25);
+        }
+        .tile.exposed:active {
+            transform: scale(0.92);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+        }
+        .tile.covered {
+            cursor: default;
+            filter: brightness(0.85);
+            border-color: #d4d4df;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            background: #faf9fd;
+        }
+        .tile img {
+            width: 30px;
+            height: 30px;
+            object-fit: contain;
+            pointer-events: none;
+        }
+        /* 消除动画 */
+        .tile.matched {
+            animation: matchPop 0.3s ease;
+        }
+        @keyframes matchPop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(0); opacity: 0; }
+        }
+
+        /* ======= 卡槽区域 ======= */
+        #slot-wrapper {
+            flex-shrink: 0;
+            padding: 8px 12px;
+            background: #ffffff;
+            border-radius: 16px 16px 0 0;
+            margin: 4px 12px 0;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.04);
+            border-top: 1px solid #e9e4f2;
+        }
+        #slot {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            background: #f5f3fb;
+            border-radius: 10px;
+            padding: 6px;
+            border: 1px solid #e2dbf0;
+            min-height: 52px;
+        }
+        .slot-cell {
+            aspect-ratio: 1 / 1;
+            background: #ffffff;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            border: 1px solid #eceaf2;
+            transition: all 0.2s;
+        }
+        .slot-cell.filled {
+            border-color: #b4a2d4;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+            background: #fcfaff;
+        }
+        .slot-cell img {
+            width: 24px;
+            height: 24px;
+            object-fit: contain;
+        }
+        #slot.shake {
+            animation: shake 0.4s ease;
+        }
+        @keyframes shake {
+            0%,100% { transform: translateX(0); }
+            20% { transform: translateX(-6px); }
+            40% { transform: translateX(6px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
+        }
+
+        /* ======= 工具栏 ======= */
+        #toolbar {
+            flex-shrink: 0;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 8px 14px;
+            background: #ffffff;
+            gap: 8px;
+            border-top: 1px solid #eceaf2;
+        }
+        .tool-btn {
+            flex: 1;
+            padding: 10px 4px;
+            border: 1px solid #ddd8ea;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            background: #f7f5fc;
+            color: #4a4560;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            transition: all 0.15s;
+            text-align: center;
+            letter-spacing: 0.5px;
+        }
+        .tool-btn:active {
+            transform: scale(0.95);
+            background: #ece7f7;
+        }
+        .tool-btn.used {
+            background: #eceaf0;
+            color: #aaa5b8;
+            cursor: not-allowed;
+            border-color: #e0dde8;
+            box-shadow: none;
+        }
+        .tool-btn.restart-btn {
+            background: #ffffff;
+            color: #6d5e9c;
+            border-color: #c9bfe0;
+            font-weight: 600;
+        }
+
+        /* ======= 消息弹层 ======= */
+        #message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            background: rgba(40, 36, 60, 0.9);
+            color: #fff;
+            padding: 20px 32px;
+            border-radius: 16px;
+            font-size: 20px;
+            z-index: 999;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.3s;
+            text-align: center;
+            line-height: 1.5;
+            backdrop-filter: blur(8px);
+        }
+        #message.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* ======= 响应式适配 ======= */
+        @media (max-width: 360px) {
+            .tile {
+                width: 46px;
+                height: 46px;
+                font-size: 22px;
+                border-radius: 6px;
+            }
+            .slot-cell {
+                font-size: 18px;
+            }
+            .tool-btn {
+                font-size: 12px;
+                padding: 8px 2px;
+            }
+        }
+        @media (min-width: 480px) {
+            .tile {
+                width: 58px;
+                height: 58px;
+                font-size: 30px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ======= HTML 结构 ======= -->
+    <div id="game">
+        <!-- 头部（无图标，纯文字） -->
+        <div id="header">
+            <span class="title">堆叠消除</span>
+            <span class="level-badge" id="level-text">第 1 关</span>
+        </div>
+
+        <!-- 牌堆区 -->
+        <div id="board-wrapper">
+            <div id="board"></div>
+        </div>
+
+        <!-- 底部卡槽 -->
+        <div id="slot-wrapper">
+            <div id="slot"></div>
+        </div>
+
+        <!-- 工具栏（纯文字，无emoji） -->
+        <div id="toolbar">
+            <button class="tool-btn" id="btn-undo">撤回</button>
+            <button class="tool-btn" id="btn-remove3">移出3</button>
+            <button class="tool-btn" id="btn-shuffle">洗牌</button>
+            <button class="tool-btn restart-btn" id="btn-restart">重开</button>
+        </div>
+    </div>
+
+    <!-- 消息弹层 -->
+    <div id="message"></div>
+
+    <script>
+        // ======================================================
+        // ============== 配置与常量 ======================
+        // ======================================================
+
+        /** 16 种卡牌类型（emoji 占位，可替换为图片外链） */
+        const TILE_TYPES = {
+            sheep: { label: '🐑', img: '' },
+            cat:   { label: '🐱', img: '' },
+            dog:   { label: '🐶', img: '' },
+            rabbit:{ label: '🐰', img: '' },
+            fox:   { label: '🦊', img: '' },
+            frog:  { label: '🐸', img: '' },
+            tiger: { label: '🐯', img: '' },
+            cow:   { label: '🐮', img: '' },
+            pig:   { label: '🐷', img: '' },
+            monkey:{ label: '🐵', img: '' },
+            rooster:{label: '🐔', img: '' },
+            penguin:{label: '🐧', img: '' },
+            bird:  { label: '🐦', img: '' },
+            horse: { label: '🐴', img: '' },
+            octopus:{label: '🐙', img: '' },
+            butterfly:{label:'🦋', img: '' }
+        };
+
+        /** 关卡配置（第一关特殊，后续循环第五关） */
+        const LEVELS = [
+            { layerCount: 3, typeCount: 3 },              // 第一关：3层、3种
+            { layerCount: 23, typeCount: 16 },             // 第二关
+            { layerCount: 24, typeCount: 16 },             // 第三关
+            { layerCount: 25, typeCount: 16 },             // 第四关
+            { layerCount: 26, typeCount: 16 }              // 第五关（循环点）
+        ];
+
+        /** 游戏配置 */
+        const CONFIG = {
+            tileSize: 52,
+            slotCapacity: 7,
+            firstLevelTilesPerLayer: 9,   // 保留未用
+            totalTypeWeight: 3            // 每种牌数量为 3 的倍数（此处为 3 组，共 9 张）
+        };
+
+        /** 网格尺寸（首层可见牌 25~30 张，6x5=30 格） */
+        let GRID_COLS = 6;
+        let GRID_ROWS = 5;
+
+        // ======================================================
+        // ============== 状态 ======================
+        // ======================================================
+
+        let levelIndex = 0;          // 当前关卡索引（0~4，5后固定为4）
+        let tiles = [];
+        let slot = [];
+        let usedTools = { undo: false, remove3: false, shuffle: false };
+        let lastState = null;
+        let gameOver = false;
+        let isVictory = false;       // 标记胜利，用于重开进入下一关
+        let BOARD_W = 340;
+        let BOARD_H = 420;
+
+        // ======================================================
+        // ============== 工具函数 ======================
+        // ======================================================
+
+        function shuffle(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function getTileRect(tile) {
+            return { x: tile.x, y: tile.y, w: CONFIG.tileSize, h: CONFIG.tileSize };
+        }
+
+        function rectsOverlap(r1, r2) {
+            return !(
+                r2.x >= r1.x + r1.w ||
+                r2.x + r2.w <= r1.x ||
+                r2.y >= r1.y + r1.h ||
+                r2.y + r2.h <= r1.y
+            );
+        }
+
+        function getBoardSize() {
+            const wrapper = document.getElementById('board-wrapper');
+            const rect = wrapper.getBoundingClientRect();
+            return { width: rect.width, height: rect.height };
+        }
+
+        /** 分配每层牌数，保证总和 = totalTiles */
+        function distributeCounts(layerCount, totalTiles) {
+            const avg = totalTiles / layerCount;
+            let base = Math.floor(avg);
+            let remainder = totalTiles - base * layerCount;
+            const counts = new Array(layerCount).fill(base);
+            const indices = shuffle([...Array(layerCount).keys()]).slice(0, remainder);
+            indices.forEach(i => counts[i]++);
+            return counts;
+        }
+
+        // ======================================================
+        // ============== 关卡生成 ======================
+        // ======================================================
+
+        /** 生成基础网格（不带偏移和抖动） */
+        function buildGridCells() {
+            const cells = [];
+            const tileSize = CONFIG.tileSize;
+            const startX = (BOARD_W - GRID_COLS * tileSize) / 2;
+            const startY = (BOARD_H - GRID_ROWS * tileSize) / 2;
+            for (let r = 0; r < GRID_ROWS; r++) {
+                for (let c = 0; c < GRID_COLS; c++) {
+                    cells.push({
+                        x: startX + c * tileSize,
+                        y: startY + r * tileSize
+                    });
+                }
+            }
+            return cells;
+        }
+
+        /**
+         * 生成某层的位置
+         * @param {number} layer        层索引（0=最底层）
+         * @param {number} count        本层牌数
+         * @param {number} totalLayers  总层数
+         * @param {Array}  allowedCells 允许使用的基础格（顶层选中的格子，保证下层都被盖住）
+         */
+        function generateLayerPositions(layer, count, totalLayers, allowedCells) {
+            const positions = [];
+            const pool = allowedCells ? [...allowedCells] : buildGridCells();
+            shuffle(pool);
+
+            // 层间偏移让边缘露出来，暗示堆叠厚度
+            let offsetX = ((layer % 3) - 1) * 6;
+            let offsetY = ((layer % 3) - 1) * 4;
+            // 最顶层居中，让堆叠看起来整齐
+            if (totalLayers && layer === totalLayers - 1) {
+                offsetX = 0;
+                offsetY = 0;
+            }
+
+            for (let i = 0; i < count; i++) {
+                const cell = pool[i % pool.length];
+                positions.push({
+                    x: Math.round(cell.x + offsetX + (Math.random() - 0.5) * 4),
+                    y: Math.round(cell.y + offsetY + (Math.random() - 0.5) * 4)
+                });
+            }
+            return positions;
+        }
+
+        /**
+         * 根据关卡索引生成牌组
+         * @param {number} idx - 关卡索引
+         * @returns {Array} tiles
+         */
+        function generateTilesForLevel(idx) {
+            const level = LEVELS[idx];
+            const layerCount = level.layerCount;
+            const typeCount = level.typeCount;
+            const typeKeys = Object.keys(TILE_TYPES).slice(0, typeCount);
+
+            // 总牌数：第一关 81 张（方便 3 种类型各 27 张），其余 144 张
+            let totalTiles;
+            if (idx === 0) {
+                totalTiles = 81;
+            } else {
+                totalTiles = typeCount * CONFIG.totalTypeWeight * 3; // 144
+            }
+            const perTypeCount = totalTiles / typeCount;
+
+            // 生成类型序列
+            const typeList = [];
+            for (const key of typeKeys) {
+                for (let i = 0; i < perTypeCount; i++) typeList.push(key);
+            }
+            shuffle(typeList);
+
+            // 首层可见牌数：第一关 27~30，其他关 25~30
+            let topCount;
+            if (idx === 0) {
+                topCount = 27 + Math.floor(Math.random() * 4);
+            } else {
+                topCount = 25 + Math.floor(Math.random() * 6);
+            }
+
+            // 分配每层牌数（底层 + 顶层）；最顶层固定为 topCount
+            const lowerCounts = distributeCounts(layerCount - 1, totalTiles - topCount);
+            const layerCounts = [...lowerCounts, topCount];
+
+            // 顶层选中的基础格子（下层也只能用这些格子，保证开局下层全被盖住）
+            const allCells = buildGridCells();
+            shuffle(allCells);
+            const topCells = allCells.slice(0, topCount);
+
+            const result = [];
+            let id = 0;
+            let posIdx = 0;
+            for (let layer = 0; layer < layerCount; layer++) {
+                const count = layerCounts[layer];
+                const positions = generateLayerPositions(layer, count, layerCount, topCells);
+                for (let i = 0; i < count; i++) {
+                    const typeKey = typeList[posIdx++];
+                    const info = TILE_TYPES[typeKey];
+                    result.push({
+                        id: id++,
+                        type: typeKey,
+                        label: info.label,
+                        img: info.img,
+                        layer: layer,
+                        x: positions[i].x,
+                        y: positions[i].y,
+                        removed: false,
+                        exposed: false
+                    });
+                }
+            }
+            return result;
+        }
+
+        // ======================================================
+        // ============== 遮挡检测 ======================
+        // ======================================================
+
+        function updateExposure() {
+            for (const tile of tiles) tile.exposed = false;
+
+            for (const tile of tiles) {
+                if (tile.removed) continue;
+                const rect1 = getTileRect(tile);
+                let covered = false;
+                for (const other of tiles) {
+                    if (other.removed) continue;
+                    if (other.layer <= tile.layer) continue;
+                    if (rectsOverlap(rect1, getTileRect(other))) {
+                        covered = true;
+                        break;
+                    }
+                }
+                tile.exposed = !covered;
+            }
+        }
+
+        // ======================================================
+        // ============== 核心逻辑 ======================
+        // ======================================================
+
+        function saveSnapshot() {
+            lastState = {
+                tiles: tiles.map(t => ({ ...t })),
+                slot: slot.map(s => ({ ...s }))
+            };
+        }
+
+        function clickTile(id) {
+            if (gameOver) return;
+            const tile = tiles.find(t => t.id === id);
+            if (!tile || tile.removed || !tile.exposed) return;
+            if (slot.length >= CONFIG.slotCapacity) return;
+
+            saveSnapshot();
+
+            tile.removed = true;
+            tile.exposed = false;
+
+            slot.push({
+                id: tile.id,
+                type: tile.type,
+                label: tile.label,
+                img: tile.img
+            });
+
+            // 三消判定
+            if (slot.length >= 3) {
+                const len = slot.length;
+                const t1 = slot[len - 1];
+                const t2 = slot[len - 2];
+                const t3 = slot[len - 3];
+                if (t1.type === t2.type && t2.type === t3.type) {
+                    const matched = slot.splice(len - 3, 3);
+                    matched.forEach(m => {
+                        document.querySelectorAll(`.tile[data-id="${m.id}"]`).forEach(el => {
+                            el.classList.add('matched');
+                        });
+                    });
+                }
+            }
+
+            updateExposure();
+            renderBoard();
+            renderSlot();
+
+            checkGameStatus();
+        }
+
+        function checkGameStatus() {
+            // 胜利
+            const allRemoved = tiles.every(t => t.removed);
+            if (allRemoved) {
+                gameOver = true;
+                isVictory = true;
+                showMessage('🎉 通关成功！');
+                return;
+            }
+
+            // 失败
+            if (slot.length >= CONFIG.slotCapacity) {
+                gameOver = true;
+                isVictory = false;
+                document.getElementById('slot').classList.add('shake');
+                setTimeout(() => document.getElementById('slot').classList.remove('shake'), 500);
+                showMessage('💔 卡槽已满，失败！');
+            }
+        }
+
+        // ======================================================
+        // ============== 道具 ======================
+        // ======================================================
+
+        function handleUndo() {
+            if (gameOver || usedTools.undo || !lastState) return;
+            usedTools.undo = true;
+            tiles = lastState.tiles.map(t => ({ ...t }));
+            slot = lastState.slot.map(s => ({ ...s }));
+            lastState = null;
+
+            updateExposure();
+            renderBoard();
+            renderSlot();
+            renderToolbar();
+            gameOver = false;
+            isVictory = false;
+            showMessage('已撤回');
+        }
+
+        function handleRemove3() {
+            if (gameOver || usedTools.remove3 || slot.length === 0) return;
+            usedTools.remove3 = true;
+            lastState = null; // 道具操作不可撤回
+
+            const count = Math.min(3, slot.length);
+            const removed = slot.splice(slot.length - count, count);
+
+            const maxLayer = tiles.reduce((max, t) => Math.max(max, t.layer), 0);
+            const newLayer = maxLayer + 1;
+            const positions = generateLayerPositions(newLayer, count, newLayer + 1);
+
+            for (let i = 0; i < removed.length; i++) {
+                const tile = tiles.find(t => t.id === removed[i].id);
+                if (tile) {
+                    tile.removed = false;
+                    tile.layer = newLayer;
+                    tile.x = positions[i].x;
+                    tile.y = positions[i].y;
+                }
+            }
+
+            updateExposure();
+            renderBoard();
+            renderSlot();
+            renderToolbar();
+            showMessage('已移出' + count + '张');
+        }
+
+        function handleShuffle() {
+            if (gameOver || usedTools.shuffle) return;
+            usedTools.shuffle = true;
+            lastState = null;
+
+            const remaining = tiles.filter(t => !t.removed);
+            const typeKeys = remaining.map(t => t.type);
+            shuffle(typeKeys);
+
+            for (let i = 0; i < remaining.length; i++) {
+                const key = typeKeys[i];
+                remaining[i].type = key;
+                remaining[i].label = TILE_TYPES[key].label;
+                remaining[i].img = TILE_TYPES[key].img;
+            }
+
+            updateExposure();
+            renderBoard();
+            renderToolbar();
+            showMessage('已洗牌');
+        }
+
+        /** 重开/下一关 */
+        function handleRestart() {
+            if (gameOver && isVictory) {
+                levelIndex = Math.min(levelIndex + 1, LEVELS.length - 1);
+            }
+            initGame();
+        }
+
+        // ======================================================
+        // ============== 渲染 ======================
+        // ======================================================
+
+        function renderBoard() {
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+
+            const sorted = [...tiles]
+                .filter(t => !t.removed)
+                .sort((a, b) => a.layer - b.layer || a.x - b.x);
+
+            for (const tile of sorted) {
+                const el = document.createElement('div');
+                el.className = 'tile';
+                el.dataset.id = tile.id;
+                el.style.left = tile.x + 'px';
+                el.style.top = tile.y + 'px';
+                el.style.zIndex = tile.layer * 10;
+
+                if (tile.img) {
+                    const img = document.createElement('img');
+                    img.src = tile.img;
+                    img.alt = tile.type;
+                    el.appendChild(img);
+                } else {
+                    el.textContent = tile.label;
+                }
+
+                if (tile.exposed) {
+                    el.classList.add('exposed');
+                    el.addEventListener('click', () => clickTile(tile.id));
+                } else {
+                    el.classList.add('covered');
+                }
+
+                board.appendChild(el);
+            }
+        }
+
+        function renderSlot() {
+            const slotEl = document.getElementById('slot');
+            slotEl.innerHTML = '';
+
+            for (let i = 0; i < CONFIG.slotCapacity; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'slot-cell';
+                if (i < slot.length) {
+                    cell.classList.add('filled');
+                    if (slot[i].img) {
+                        const img = document.createElement('img');
+                        img.src = slot[i].img;
+                        img.alt = slot[i].type;
+                        cell.appendChild(img);
+                    } else {
+                        cell.textContent = slot[i].label;
+                    }
+                }
+                slotEl.appendChild(cell);
+            }
+        }
+
+        function renderToolbar() {
+            document.getElementById('btn-undo').classList.toggle('used', usedTools.undo);
+            document.getElementById('btn-remove3').classList.toggle('used', usedTools.remove3);
+            document.getElementById('btn-shuffle').classList.toggle('used', usedTools.shuffle);
+        }
+
+        // ======================================================
+        // ============== 消息 ======================
+        // ======================================================
+
+        let messageTimer = null;
+
+        function showMessage(text) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.classList.add('show');
+            if (messageTimer) clearTimeout(messageTimer);
+            messageTimer = setTimeout(() => msg.classList.remove('show'), 1800);
+        }
+
+        // ======================================================
+        // ============== 初始化 ======================
+        // ======================================================
+
+        function initGame() {
+            const size = getBoardSize();
+            BOARD_W = size.width || 340;
+            BOARD_H = size.height || 420;
+
+            // 使用 6x5 网格，保证首层可以放 25~30 张
+            GRID_COLS = 6;
+            GRID_ROWS = 5;
+
+            gameOver = false;
+            isVictory = false;
+            usedTools = { undo: false, remove3: false, shuffle: false };
+            lastState = null;
+            slot = [];
+
+            tiles = generateTilesForLevel(levelIndex);
+
+            updateExposure();
+            renderBoard();
+            renderSlot();
+            renderToolbar();
+
+            const displayLevel = Math.min(levelIndex + 1, LEVELS.length);
+            document.getElementById('level-text').textContent = '第 ' + displayLevel + ' 关';
+        }
+
+        // ======================================================
+        // ============== 事件绑定 ======================
+        // ======================================================
+
+        document.getElementById('btn-undo').addEventListener('click', handleUndo);
+        document.getElementById('btn-remove3').addEventListener('click', handleRemove3);
+        document.getElementById('btn-shuffle').addEventListener('click', handleShuffle);
+        document.getElementById('btn-restart').addEventListener('click', handleRestart);
+
+        // 窗口尺寸变化时重算（简单重开当前关，避免错位）
+        let resizeTimer = null;
+        window.addEventListener('resize', () => {
+            if (resizeTimer) clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                const size = getBoardSize();
+                if (size.width > 0 && size.height > 0) {
+                    BOARD_W = size.width;
+                    BOARD_H = size.height;
+                    initGame();
+                }
+            }, 300);
+        });
+
+        // 启动
+        initGame();
+    </script>
+</body>
+</html>
