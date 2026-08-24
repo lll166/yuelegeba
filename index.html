@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-    <title>堆叠消除 · 羊了个羊</title>
+    <title>月了个巴</title>
     <style>
-        /* ======= 全局重置 ======= */
         * {
             margin: 0;
             padding: 0;
@@ -18,10 +17,9 @@
             height: 100%;
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: #d6ccef; /* 淡紫色背景 */
+            background: #d6ccef;
         }
 
-        /* ======= 游戏容器 ======= */
         #game {
             max-width: 500px;
             height: 100vh;
@@ -29,24 +27,26 @@
             margin: 0 auto;
             display: flex;
             flex-direction: column;
-            background: #f4f2fa; /* 极浅灰紫，商务简约 */
+            background: #f4f2fa;
             box-shadow: 0 0 40px rgba(0, 0, 0, 0.15);
         }
 
-        /* ======= 头部 ======= */
         #header {
-            height: 58px;
+            min-height: 58px;
+            height: auto;
             flex-shrink: 0;
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
             justify-content: center;
-            gap: 12px;
+            gap: 8px;
+            row-gap: 6px;
             background: #ffffff;
             border-bottom: 1px solid #e5e0ef;
-            padding: 0 16px;
+            padding: 6px 10px;
         }
         #header .title {
-            font-size: 19px;
+            font-size: 18px;
             font-weight: 600;
             color: #3d3a55;
             letter-spacing: 1px;
@@ -56,12 +56,19 @@
             background: #f0ecf9;
             color: #6d5e9c;
             border-radius: 24px;
-            padding: 4px 16px;
+            padding: 4px 12px;
             font-weight: 500;
             border: 1px solid #dcd4f0;
+            white-space: nowrap;
+        }
+        #header .music-btn {
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #header .music-btn:hover {
+            background: #e2daf5;
         }
 
-        /* ======= 牌堆区域 ======= */
         #board-wrapper {
             flex: 1;
             min-height: 0;
@@ -71,6 +78,9 @@
             border-radius: 16px;
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
             border: 1px solid #e9e4f2;
+            background-image: url('https://origin.picgo.net/2026/08/25/05f8e126fb7c2b305686aa45be03ec68801bc1478c025d90.gif');
+            background-size: cover;
+            background-position: center;
         }
         #board {
             position: absolute;
@@ -80,19 +90,22 @@
             height: 100%;
         }
 
-        /* ======= 卡牌 ======= */
         .tile {
             position: absolute;
             width: 52px;
             height: 52px;
-            border-radius: 8px;
+            border-radius: 9px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 26px;
-            background: #ffffff;
+            background: linear-gradient(145deg, #ffffff, #f0edf5);
             border: 1px solid #d6d6e3;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            box-shadow:
+                0 2px 0 #cfc6dc,
+                0 4px 0 #c0b6d0,
+                0 6px 10px rgba(0, 0, 0, 0.14),
+                inset 0 1px 1px rgba(255, 255, 255, 0.8);
             user-select: none;
             -webkit-user-select: none;
             transition: transform 0.12s, box-shadow 0.12s, filter 0.12s;
@@ -101,19 +114,30 @@
         .tile.exposed {
             cursor: pointer;
             border-color: #8f7cb4;
-            background: #ffffff;
-            box-shadow: 0 3px 12px rgba(116, 94, 168, 0.25);
+            background: linear-gradient(145deg, #ffffff, #f4efff);
+            box-shadow:
+                0 2px 0 #a08ec0,
+                0 4px 0 #8a7aa8,
+                0 6px 12px rgba(116, 94, 168, 0.35),
+                inset 0 1px 1px rgba(255, 255, 255, 0.9);
         }
         .tile.exposed:active {
             transform: scale(0.92);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+            box-shadow:
+                0 1px 0 #a08ec0,
+                0 2px 0 #8a7aa8,
+                0 3px 6px rgba(116, 94, 168, 0.2);
         }
         .tile.covered {
             cursor: default;
             filter: brightness(0.85);
             border-color: #d4d4df;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-            background: #faf9fd;
+            background: linear-gradient(145deg, #e8e6ee, #d9d7e0);
+            box-shadow:
+                0 2px 0 #b5b0c0,
+                0 4px 0 #aaa5b8,
+                0 6px 8px rgba(0, 0, 0, 0.08),
+                inset 0 1px 1px rgba(255, 255, 255, 0.4);
         }
         .tile img {
             width: 30px;
@@ -121,17 +145,22 @@
             object-fit: contain;
             pointer-events: none;
         }
-        /* 消除动画 */
         .tile.matched {
             animation: matchPop 0.3s ease;
         }
         @keyframes matchPop {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.2); }
-            100% { transform: scale(0); opacity: 0; }
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.2);
+            }
+            100% {
+                transform: scale(0);
+                opacity: 0;
+            }
         }
 
-        /* ======= 卡槽区域 ======= */
         #slot-wrapper {
             flex-shrink: 0;
             padding: 8px 12px;
@@ -176,29 +205,39 @@
             animation: shake 0.4s ease;
         }
         @keyframes shake {
-            0%,100% { transform: translateX(0); }
-            20% { transform: translateX(-6px); }
-            40% { transform: translateX(6px); }
-            60% { transform: translateX(-4px); }
-            80% { transform: translateX(4px); }
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+            20% {
+                transform: translateX(-6px);
+            }
+            40% {
+                transform: translateX(6px);
+            }
+            60% {
+                transform: translateX(-4px);
+            }
+            80% {
+                transform: translateX(4px);
+            }
         }
 
-        /* ======= 工具栏 ======= */
         #toolbar {
             flex-shrink: 0;
             display: flex;
             justify-content: space-around;
             padding: 10px 8px 14px;
             background: #ffffff;
-            gap: 8px;
+            gap: 6px;
             border-top: 1px solid #eceaf2;
         }
         .tool-btn {
             flex: 1;
-            padding: 10px 4px;
+            padding: 10px 2px;
             border: 1px solid #ddd8ea;
             border-radius: 25px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
             cursor: pointer;
             background: #f7f5fc;
@@ -206,7 +245,7 @@
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
             transition: all 0.15s;
             text-align: center;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
         }
         .tool-btn:active {
             transform: scale(0.95);
@@ -226,13 +265,12 @@
             font-weight: 600;
         }
 
-        /* ======= 消息弹层 ======= */
         #message {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) scale(0.9);
-            background: rgba(40, 36, 60, 0.9);
+            background: rgba(40, 36, 60, 0.92);
             color: #fff;
             padding: 20px 32px;
             border-radius: 16px;
@@ -250,7 +288,125 @@
             transform: translate(-50%, -50%) scale(1);
         }
 
-        /* ======= 响应式适配 ======= */
+        /* ============ 弹窗（通用） ============ */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.55);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.25s, visibility 0.25s;
+        }
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-box {
+            background: #ffffff;
+            border-radius: 18px;
+            width: min(90vw, 340px);
+            padding: 22px;
+            text-align: center;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+            transform: scale(0.9);
+            transition: transform 0.25s;
+        }
+        .modal-overlay.show .modal-box {
+            transform: scale(1);
+        }
+        .modal-box h3 {
+            margin-bottom: 12px;
+            color: #3d3a55;
+            font-size: 18px;
+        }
+        .modal-box .level5-img {
+            width: 100%;
+            max-height: 220px;
+            object-fit: cover;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            display: block;
+        }
+        .modal-box p {
+            color: #555;
+            margin-bottom: 16px;
+            font-size: 15px;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        .modal-buttons button {
+            flex: 1;
+            padding: 10px 0;
+            border-radius: 22px;
+            border: none;
+            font-size: 15px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.15s;
+        }
+        .modal-buttons button:active {
+            transform: scale(0.95);
+        }
+        .btn-primary {
+            background: #6d5e9c;
+            color: #fff;
+        }
+        .btn-secondary {
+            background: #f0ecf9;
+            color: #6d5e9c;
+        }
+
+        /* ============ 排行榜 ============ */
+        .leaderboard-box {
+            width: min(92vw, 420px);
+        }
+        .leaderboard-body {
+            max-height: 320px;
+            overflow-y: auto;
+            margin-bottom: 12px;
+            -webkit-overflow-scrolling: touch;
+        }
+        #leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        #leaderboard-table th,
+        #leaderboard-table td {
+            border-bottom: 1px solid #eee;
+            padding: 8px 4px;
+            text-align: center;
+        }
+        #leaderboard-table th {
+            background: #f7f5fc;
+            color: #6d5e9c;
+            position: sticky;
+            top: 0;
+        }
+        #leaderboard-table .win {
+            color: #2e7d32;
+            font-weight: 600;
+        }
+        #leaderboard-table .fail {
+            color: #c62828;
+            font-weight: 600;
+        }
+        .empty-tip {
+            color: #999;
+            padding: 26px 0;
+            font-size: 14px;
+        }
+
         @media (max-width: 360px) {
             .tile {
                 width: 46px;
@@ -262,8 +418,12 @@
                 font-size: 18px;
             }
             .tool-btn {
-                font-size: 12px;
+                font-size: 11px;
                 padding: 8px 2px;
+            }
+            #header .level-badge {
+                padding: 4px 8px;
+                font-size: 12px;
             }
         }
         @media (min-width: 480px) {
@@ -277,25 +437,54 @@
 </head>
 <body>
 
-    <!-- ======= HTML 结构 ======= -->
+    <!-- 背景音乐（外链，循环） -->
+    <audio id="bgm" loop></audio>
+
+    <!-- 点击音效（外链） -->
+    <audio id="click-sound" preload="auto"></audio>
+
+    <!-- 第五关通关弹窗 -->
+    <div class="modal-overlay" id="level5-modal">
+        <div class="modal-box">
+            <h3>🎉 恭喜通关第五关！</h3>
+            <img class="level5-img" id="level5-img" alt="通关图片">
+            <p>是否继续游玩第五关？</p>
+            <div class="modal-buttons">
+                <button class="btn-primary" id="btn-continue-yes">是</button>
+                <button class="btn-secondary" id="btn-continue-no">否</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 排行榜弹窗 -->
+    <div class="modal-overlay" id="leaderboard-modal">
+        <div class="modal-box leaderboard-box">
+            <h3>🏆 排行榜</h3>
+            <div class="leaderboard-body" id="leaderboard-body"></div>
+            <div class="modal-buttons">
+                <button class="btn-secondary" id="btn-leaderboard-clear">清空记录</button>
+                <button class="btn-primary" id="btn-leaderboard-close">关闭</button>
+            </div>
+        </div>
+    </div>
+
     <div id="game">
-        <!-- 头部（无图标，纯文字） -->
         <div id="header">
-            <span class="title">堆叠消除</span>
+            <span class="title">月了个巴</span>
             <span class="level-badge" id="level-text">第 1 关</span>
+            <span class="level-badge music-btn" id="btn-music">音乐:关</span>
+            <span class="level-badge music-btn" id="btn-song">🎵:1</span>
+            <span class="level-badge music-btn" id="btn-leaderboard">🏆 排行榜</span>
         </div>
 
-        <!-- 牌堆区 -->
         <div id="board-wrapper">
             <div id="board"></div>
         </div>
 
-        <!-- 底部卡槽 -->
         <div id="slot-wrapper">
             <div id="slot"></div>
         </div>
 
-        <!-- 工具栏（纯文字，无emoji） -->
         <div id="toolbar">
             <button class="tool-btn" id="btn-undo">撤回</button>
             <button class="tool-btn" id="btn-remove3">移出3</button>
@@ -304,79 +493,79 @@
         </div>
     </div>
 
-    <!-- 消息弹层 -->
     <div id="message"></div>
 
     <script>
-        // ======================================================
-        // ============== 配置与常量 ======================
-        // ======================================================
-
-        /** 16 种卡牌类型（emoji 占位，可替换为图片外链） */
+        // ===================== 配置与常量 =====================
         const TILE_TYPES = {
             sheep: { label: '🐑', img: '' },
-            cat:   { label: '🐱', img: '' },
-            dog:   { label: '🐶', img: '' },
-            rabbit:{ label: '🐰', img: '' },
-            fox:   { label: '🦊', img: '' },
-            frog:  { label: '🐸', img: '' },
+            cat: { label: '🐱', img: '' },
+            dog: { label: '🐶', img: '' },
+            rabbit: { label: '🐰', img: '' },
+            fox: { label: '🦊', img: '' },
+            frog: { label: '🐸', img: '' },
             tiger: { label: '🐯', img: '' },
-            cow:   { label: '🐮', img: '' },
-            pig:   { label: '🐷', img: '' },
-            monkey:{ label: '🐵', img: '' },
-            rooster:{label: '🐔', img: '' },
-            penguin:{label: '🐧', img: '' },
-            bird:  { label: '🐦', img: '' },
+            cow: { label: '🐮', img: '' },
+            pig: { label: '🐷', img: '' },
+            monkey: { label: '🐵', img: '' },
+            rooster: { label: '🐔', img: '' },
+            penguin: { label: '🐧', img: '' },
+            bird: { label: '🐦', img: '' },
             horse: { label: '🐴', img: '' },
-            octopus:{label: '🐙', img: '' },
-            butterfly:{label:'🦋', img: '' }
+            octopus: { label: '🐙', img: '' },
+            butterfly: { label: '🦋', img: '' }
         };
 
-        /** 关卡配置（第一关特殊，后续循环第五关） */
         const LEVELS = [
-            { layerCount: 3, typeCount: 3 },              // 第一关：3层、3种
-            { layerCount: 23, typeCount: 16 },             // 第二关
-            { layerCount: 24, typeCount: 16 },             // 第三关
-            { layerCount: 25, typeCount: 16 },             // 第四关
-            { layerCount: 26, typeCount: 16 }              // 第五关（循环点）
+            { layerCount: 2, typeCount: 3 },
+            { layerCount: 23, typeCount: 16 },
+            { layerCount: 24, typeCount: 16 },
+            { layerCount: 25, typeCount: 16 },
+            { layerCount: 26, typeCount: 16 }
         ];
 
-        /** 游戏配置 */
         const CONFIG = {
             tileSize: 52,
             slotCapacity: 7,
-            firstLevelTilesPerLayer: 9,   // 保留未用
-            totalTypeWeight: 3            // 每种牌数量为 3 的倍数（此处为 3 组，共 9 张）
+            firstLevelTilesPerLayer: 9,
+            totalTypeWeight: 3
         };
 
-        /** 网格尺寸（首层可见牌 25~30 张，6x5=30 格） */
-        let GRID_COLS = 6;
-        let GRID_ROWS = 5;
+        // ===================== 外链资源（可自行替换成你自己的地址） =====================
+        const CLICK_SOUND_URL = 'https://cdn.jsdelivr.net/gh/lll166/yuelegeba/音效.mp3';
+        const LEVEL5_IMAGE_URL = 'https://picsum.photos/seed/yuelegeba/game-win-sound.mp3';
 
-        // ======================================================
-        // ============== 状态 ======================
-        // ======================================================
+        // ===================== 歌曲列表（可替换为任意外链MP3） =====================
+        const SONGS = [
+            { name: '月了个巴', url: 'https://cdn.jsdelivr.net/gh/lll166/yuelegeba/yuelegeba_min.mp3' },
+            { name: '月巴需要番茄能量', url: 'https://cdn.jsdelivr.net/gh/lll166/yuelegeba/月巴需要番茄能量_min.mp3' },
 
-        let levelIndex = 0;          // 当前关卡索引（0~4，5后固定为4）
+        ];
+        let currentSongIndex = 0;
+
+        // ===================== 状态 =====================
+        let levelIndex = 0;
         let tiles = [];
         let slot = [];
         let usedTools = { undo: false, remove3: false, shuffle: false };
         let lastState = null;
         let gameOver = false;
-        let isVictory = false;       // 标记胜利，用于重开进入下一关
+        let isVictory = false;
         let BOARD_W = 340;
         let BOARD_H = 420;
+        let victoryTimer = null;
 
-        // ======================================================
-        // ============== 工具函数 ======================
-        // ======================================================
-
+        // ===================== 工具函数 =====================
         function shuffle(arr) {
             for (let i = arr.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [arr[i], arr[j]] = [arr[j], arr[i]];
             }
             return arr;
+        }
+
+        function clamp(v, min, max) {
+            return Math.min(max, Math.max(min, v));
         }
 
         function getTileRect(tile) {
@@ -398,127 +587,200 @@
             return { width: rect.width, height: rect.height };
         }
 
-        /** 分配每层牌数，保证总和 = totalTiles */
-        function distributeCounts(layerCount, totalTiles) {
-            const avg = totalTiles / layerCount;
-            let base = Math.floor(avg);
-            let remainder = totalTiles - base * layerCount;
-            const counts = new Array(layerCount).fill(base);
-            const indices = shuffle([...Array(layerCount).keys()]).slice(0, remainder);
-            indices.forEach(i => counts[i]++);
-            return counts;
-        }
-
-        // ======================================================
-        // ============== 关卡生成 ======================
-        // ======================================================
-
-        /** 生成基础网格（不带偏移和抖动） */
-        function buildGridCells() {
-            const cells = [];
+        // ===================== 位置生成 =====================
+        // 顶层位置：围绕中心离散，同层不交叠
+        function generateTopPositions(count) {
+            const positions = [];
             const tileSize = CONFIG.tileSize;
-            const startX = (BOARD_W - GRID_COLS * tileSize) / 2;
-            const startY = (BOARD_H - GRID_ROWS * tileSize) / 2;
-            for (let r = 0; r < GRID_ROWS; r++) {
-                for (let c = 0; c < GRID_COLS; c++) {
-                    cells.push({
-                        x: startX + c * tileSize,
-                        y: startY + r * tileSize
-                    });
+            const cx = BOARD_W / 2;
+            const cy = BOARD_H / 2;
+            const maxRadius = Math.min(BOARD_W, BOARD_H) * 0.42;
+
+            let attempts = 0;
+            while (positions.length < count && attempts < 8000) {
+                attempts++;
+                const angle = Math.random() * Math.PI * 2;
+                const dist = Math.pow(Math.random(), 0.55) * maxRadius;
+                const x = clamp(Math.round(cx + Math.cos(angle) * dist), 0, BOARD_W - tileSize);
+                const y = clamp(Math.round(cy + Math.sin(angle) * dist), 0, BOARD_H - tileSize);
+                const rect = { x, y, w: tileSize, h: tileSize };
+                const overlap = positions.some(p => rectsOverlap(rect, { x: p.x, y: p.y, w: tileSize, h: tileSize }));
+                if (!overlap) {
+                    positions.push({ x, y });
                 }
             }
-            return cells;
-        }
 
-        /**
-         * 生成某层的位置
-         * @param {number} layer        层索引（0=最底层）
-         * @param {number} count        本层牌数
-         * @param {number} totalLayers  总层数
-         * @param {Array}  allowedCells 允许使用的基础格（顶层选中的格子，保证下层都被盖住）
-         */
-        function generateLayerPositions(layer, count, totalLayers, allowedCells) {
-            const positions = [];
-            const pool = allowedCells ? [...allowedCells] : buildGridCells();
-            shuffle(pool);
-
-            // 层间偏移让边缘露出来，暗示堆叠厚度
-            let offsetX = ((layer % 3) - 1) * 6;
-            let offsetY = ((layer % 3) - 1) * 4;
-            // 最顶层居中，让堆叠看起来整齐
-            if (totalLayers && layer === totalLayers - 1) {
-                offsetX = 0;
-                offsetY = 0;
-            }
-
-            for (let i = 0; i < count; i++) {
-                const cell = pool[i % pool.length];
-                positions.push({
-                    x: Math.round(cell.x + offsetX + (Math.random() - 0.5) * 4),
-                    y: Math.round(cell.y + offsetY + (Math.random() - 0.5) * 4)
-                });
+            // 网格补充：确保数量足够
+            let seed = 0;
+            while (positions.length < count && seed < 5000) {
+                seed++;
+                const cols = Math.max(1, Math.ceil(Math.sqrt(count)));
+                const cell = tileSize + 4;
+                const r = Math.floor(seed / cols);
+                const c = seed % cols;
+                const x = Math.round(cx + (c - (cols - 1) / 2) * cell);
+                const y = Math.round(cy + (r - (cols - 1) / 2) * cell);
+                if (x >= 0 && x + tileSize <= BOARD_W && y >= 0 && y + tileSize <= BOARD_H) {
+                    const rect = { x, y, w: tileSize, h: tileSize };
+                    const overlap = positions.some(p => rectsOverlap(rect, { x: p.x, y: p.y, w: tileSize, h: tileSize }));
+                    if (!overlap) {
+                        positions.push({ x, y });
+                    }
+                }
             }
             return positions;
         }
 
-        /**
-         * 根据关卡索引生成牌组
-         * @param {number} idx - 关卡索引
-         * @returns {Array} tiles
-         */
-        function generateTilesForLevel(idx) {
-            const level = LEVELS[idx];
+        // 下层位置：基于上层位置偏移，保持围绕中心，同层不交叠
+        function generateLowerLayerPositions(upperPositions, count) {
+            const positions = [];
+            const tileSize = CONFIG.tileSize;
+            const cx = BOARD_W / 2;
+            const cy = BOARD_H / 2;
+            const maxRadius = Math.min(BOARD_W, BOARD_H) * 0.32;
+
+            const basePool = shuffle([...upperPositions]);
+            let idx = 0;
+            while (positions.length < count && idx < basePool.length) {
+                const base = basePool[idx];
+                idx++;
+                // 只利用靠近中心的基准点，保证整体不过于离散
+                if (Math.hypot(base.x + tileSize / 2 - cx, base.y + tileSize / 2 - cy) > maxRadius) {
+                    continue;
+                }
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 6 + Math.random() * 12;
+                const x = clamp(Math.round(base.x + Math.cos(angle) * dist), 0, BOARD_W - tileSize);
+                const y = clamp(Math.round(base.y + Math.sin(angle) * dist), 0, BOARD_H - tileSize);
+                const rect = { x, y, w: tileSize, h: tileSize };
+                const overlap = positions.some(p => rectsOverlap(rect, { x: p.x, y: p.y, w: tileSize, h: tileSize }));
+                if (!overlap) {
+                    positions.push({ x, y });
+                }
+            }
+
+            // 不足时围绕中心补充
+            const supplementRadius = Math.min(BOARD_W, BOARD_H) * 0.24;
+            let attempts = 0;
+            while (positions.length < count && attempts < 8000) {
+                attempts++;
+                const angle = Math.random() * Math.PI * 2;
+                const dist = Math.pow(Math.random(), 0.7) * supplementRadius;
+                const x = clamp(Math.round(cx + Math.cos(angle) * dist), 0, BOARD_W - tileSize);
+                const y = clamp(Math.round(cy + Math.sin(angle) * dist), 0, BOARD_H - tileSize);
+                const rect = { x, y, w: tileSize, h: tileSize };
+                const overlap = positions.some(p => rectsOverlap(rect, { x: p.x, y: p.y, w: tileSize, h: tileSize }));
+                if (!overlap) {
+                    positions.push({ x, y });
+                }
+            }
+
+            // 极端兜底
+            let seed = 0;
+            while (positions.length < count && seed < 3000) {
+                seed++;
+                const gx = clamp(Math.round(cx + (seed % 5 - 2) * (tileSize + 2)), 0, BOARD_W - tileSize);
+                const gy = clamp(Math.round(cy + (Math.floor(seed / 5) - 2) * (tileSize + 2)), 0, BOARD_H - tileSize);
+                const rect = { x: gx, y: gy, w: tileSize, h: tileSize };
+                const overlap = positions.some(p => rectsOverlap(rect, { x: p.x, y: p.y, w: tileSize, h: tileSize }));
+                if (!overlap) {
+                    positions.push({ x: gx, y: gy });
+                }
+            }
+            return positions;
+        }
+
+        // ===================== 关卡生成（必定可解） =====================
+        function distributeDecreasing(layerCount, totalTiles) {
+            if (layerCount <= 1) return [totalTiles];
+            const counts = new Array(layerCount).fill(1);
+            let remaining = totalTiles - layerCount;
+
+            let topExtra = Math.round(remaining * (0.40 + Math.random() * 0.10));
+            topExtra = Math.min(topExtra, remaining);
+            counts[layerCount - 1] += topExtra;
+            remaining -= topExtra;
+
+            let bottomExtra = Math.min(3, Math.round(remaining * 0.08));
+            counts[0] += bottomExtra;
+            remaining -= bottomExtra;
+
+            if (layerCount > 2 && remaining > 0) {
+                const weights = [];
+                let sumW = 0;
+                for (let i = 1; i <= layerCount - 2; i++) {
+                    const w = Math.pow(i, 2);
+                    weights.push(w);
+                    sumW += w;
+                }
+                let assigned = 0;
+                for (let i = 0; i < weights.length; i++) {
+                    let c = Math.floor(weights[i] / sumW * remaining);
+                    counts[i + 1] += c;
+                    assigned += c;
+                }
+                counts[layerCount - 2] += (remaining - assigned);
+            } else if (remaining > 0) {
+                counts[layerCount - 1] += remaining;
+            }
+
+            let diff = totalTiles - counts.reduce((a, b) => a + b, 0);
+            let idx = layerCount - 1;
+            let guard = 0;
+            while (diff !== 0 && guard < 200) {
+                guard++;
+                if (diff > 0) {
+                    counts[idx] += 1;
+                    diff--;
+                } else if (counts[idx] > 1) {
+                    counts[idx] -= 1;
+                    diff++;
+                }
+                idx--;
+                if (idx < 0) idx = layerCount - 1;
+            }
+            if (layerCount >= 2 && counts[layerCount - 2] > counts[layerCount - 1]) {
+                const excess = counts[layerCount - 2] - counts[layerCount - 1] + 1;
+                counts[layerCount - 2] -= excess;
+                counts[layerCount - 1] += excess;
+            }
+            return counts;
+        }
+
+        function buildSolvableTiles(levelIndex) {
+            const level = LEVELS[levelIndex];
             const layerCount = level.layerCount;
             const typeCount = level.typeCount;
             const typeKeys = Object.keys(TILE_TYPES).slice(0, typeCount);
 
-            // 总牌数：第一关 81 张（方便 3 种类型各 27 张），其余 144 张
-            let totalTiles;
-            if (idx === 0) {
-                totalTiles = 81;
-            } else {
-                totalTiles = typeCount * CONFIG.totalTypeWeight * 3; // 144
-            }
-            const perTypeCount = totalTiles / typeCount;
+            let totalTiles = (levelIndex === 0) ? 21 : typeCount * CONFIG.totalTypeWeight * 3;
+            totalTiles = Math.floor(totalTiles / 3) * 3;
 
-            // 生成类型序列
-            const typeList = [];
-            for (const key of typeKeys) {
-                for (let i = 0; i < perTypeCount; i++) typeList.push(key);
-            }
-            shuffle(typeList);
+            const layerCounts = distributeDecreasing(layerCount, totalTiles);
 
-            // 首层可见牌数：第一关 27~30，其他关 25~30
-            let topCount;
-            if (idx === 0) {
-                topCount = 27 + Math.floor(Math.random() * 4);
-            } else {
-                topCount = 25 + Math.floor(Math.random() * 6);
-            }
-
-            // 分配每层牌数（底层 + 顶层）；最顶层固定为 topCount
-            const lowerCounts = distributeCounts(layerCount - 1, totalTiles - topCount);
-            const layerCounts = [...lowerCounts, topCount];
-
-            // 顶层选中的基础格子（下层也只能用这些格子，保证开局下层全被盖住）
-            const allCells = buildGridCells();
-            shuffle(allCells);
-            const topCells = allCells.slice(0, topCount);
-
-            const result = [];
-            let id = 0;
-            let posIdx = 0;
-            for (let layer = 0; layer < layerCount; layer++) {
+            // 生成每一层的位置（从顶层向下）
+            const layerPositions = [];
+            let upperPositions = null;
+            for (let layer = layerCount - 1; layer >= 0; layer--) {
                 const count = layerCounts[layer];
-                const positions = generateLayerPositions(layer, count, layerCount, topCells);
-                for (let i = 0; i < count; i++) {
-                    const typeKey = typeList[posIdx++];
-                    const info = TILE_TYPES[typeKey];
-                    result.push({
+                let positions;
+                if (layer === layerCount - 1) {
+                    positions = generateTopPositions(count);
+                } else {
+                    positions = generateLowerLayerPositions(upperPositions, count);
+                }
+                layerPositions[layer] = positions;
+                upperPositions = positions;
+            }
+
+            // 构造 tiles
+            const tiles = [];
+            let id = 0;
+            for (let layer = 0; layer < layerCount; layer++) {
+                const positions = layerPositions[layer];
+                for (let i = 0; i < positions.length; i++) {
+                    tiles.push({
                         id: id++,
-                        type: typeKey,
-                        label: info.label,
-                        img: info.img,
                         layer: layer,
                         x: positions[i].x,
                         y: positions[i].y,
@@ -527,16 +789,41 @@
                     });
                 }
             }
-            return result;
+
+            // 按层降序排序，同层打乱顺序
+            const sortedTiles = [...tiles].sort((a, b) => {
+                if (a.layer !== b.layer) return b.layer - a.layer;
+                return Math.random() - 0.5;
+            });
+
+            // 每3张一组分配类型（确保可通关）
+            const groupCount = totalTiles / 3;
+            const groups = [];
+            for (let i = 0; i < typeKeys.length; i++) groups.push(typeKeys[i]);
+            while (groups.length < groupCount) {
+                groups.push(typeKeys[Math.floor(Math.random() * typeKeys.length)]);
+            }
+            shuffle(groups);
+
+            for (let g = 0; g < groupCount; g++) {
+                const typeKey = groups[g];
+                const info = TILE_TYPES[typeKey];
+                for (let j = 0; j < 3; j++) {
+                    const idx = g * 3 + j;
+                    if (idx < sortedTiles.length) {
+                        const tile = sortedTiles[idx];
+                        tile.type = typeKey;
+                        tile.label = info.label;
+                        tile.img = info.img;
+                    }
+                }
+            }
+            return tiles;
         }
 
-        // ======================================================
-        // ============== 遮挡检测 ======================
-        // ======================================================
-
+        // ===================== 遮挡检测 =====================
         function updateExposure() {
             for (const tile of tiles) tile.exposed = false;
-
             for (const tile of tiles) {
                 if (tile.removed) continue;
                 const rect1 = getTileRect(tile);
@@ -553,10 +840,7 @@
             }
         }
 
-        // ======================================================
-        // ============== 核心逻辑 ======================
-        // ======================================================
-
+        // ===================== 核心逻辑 =====================
         function saveSnapshot() {
             lastState = {
                 tiles: tiles.map(t => ({ ...t })),
@@ -570,19 +854,14 @@
             if (!tile || tile.removed || !tile.exposed) return;
             if (slot.length >= CONFIG.slotCapacity) return;
 
-            saveSnapshot();
+            playClickSound(); // 点击音效
 
+            saveSnapshot();
             tile.removed = true;
             tile.exposed = false;
 
-            slot.push({
-                id: tile.id,
-                type: tile.type,
-                label: tile.label,
-                img: tile.img
-            });
+            slot.push({ id: tile.id, type: tile.type, label: tile.label, img: tile.img });
 
-            // 三消判定
             if (slot.length >= 3) {
                 const len = slot.length;
                 const t1 = slot[len - 1];
@@ -601,72 +880,74 @@
             updateExposure();
             renderBoard();
             renderSlot();
-
             checkGameStatus();
         }
 
         function checkGameStatus() {
-            // 胜利
             const allRemoved = tiles.every(t => t.removed);
             if (allRemoved) {
                 gameOver = true;
                 isVictory = true;
-                showMessage('🎉 通关成功！');
+                finishRound(true); // 记录成功
+                if (levelIndex === LEVELS.length - 1) {
+                    // 第五关通关 → 弹窗询问是否继续
+                    showLevel5Modal();
+                } else {
+                    showMessage('🎉 通关成功！');
+                    if (victoryTimer) clearTimeout(victoryTimer);
+                    victoryTimer = setTimeout(() => { handleRestart(); }, 1500);
+                }
                 return;
             }
-
-            // 失败
             if (slot.length >= CONFIG.slotCapacity) {
                 gameOver = true;
                 isVictory = false;
+                finishRound(false); // 记录失败
                 document.getElementById('slot').classList.add('shake');
                 setTimeout(() => document.getElementById('slot').classList.remove('shake'), 500);
                 showMessage('💔 卡槽已满，失败！');
             }
         }
 
-        // ======================================================
-        // ============== 道具 ======================
-        // ======================================================
-
+        // ===================== 道具 =====================
         function handleUndo() {
             if (gameOver || usedTools.undo || !lastState) return;
             usedTools.undo = true;
             tiles = lastState.tiles.map(t => ({ ...t }));
             slot = lastState.slot.map(s => ({ ...s }));
             lastState = null;
-
             updateExposure();
             renderBoard();
             renderSlot();
             renderToolbar();
             gameOver = false;
             isVictory = false;
+            if (victoryTimer) clearTimeout(victoryTimer);
             showMessage('已撤回');
         }
 
         function handleRemove3() {
             if (gameOver || usedTools.remove3 || slot.length === 0) return;
             usedTools.remove3 = true;
-            lastState = null; // 道具操作不可撤回
+            lastState = null;
 
             const count = Math.min(3, slot.length);
             const removed = slot.splice(slot.length - count, count);
 
             const maxLayer = tiles.reduce((max, t) => Math.max(max, t.layer), 0);
             const newLayer = maxLayer + 1;
-            const positions = generateLayerPositions(newLayer, count, newLayer + 1);
 
+            const cx = BOARD_W / 2;
+            const cy = BOARD_H / 2;
             for (let i = 0; i < removed.length; i++) {
                 const tile = tiles.find(t => t.id === removed[i].id);
                 if (tile) {
                     tile.removed = false;
                     tile.layer = newLayer;
-                    tile.x = positions[i].x;
-                    tile.y = positions[i].y;
+                    tile.x = clamp(Math.round(cx + (Math.random() - 0.5) * BOARD_W * 0.45), 0, BOARD_W - CONFIG.tileSize);
+                    tile.y = clamp(Math.round(cy + (Math.random() - 0.5) * BOARD_H * 0.45), 0, BOARD_H - CONFIG.tileSize);
                 }
             }
-
             updateExposure();
             renderBoard();
             renderSlot();
@@ -678,25 +959,21 @@
             if (gameOver || usedTools.shuffle) return;
             usedTools.shuffle = true;
             lastState = null;
-
             const remaining = tiles.filter(t => !t.removed);
             const typeKeys = remaining.map(t => t.type);
             shuffle(typeKeys);
-
             for (let i = 0; i < remaining.length; i++) {
                 const key = typeKeys[i];
                 remaining[i].type = key;
                 remaining[i].label = TILE_TYPES[key].label;
                 remaining[i].img = TILE_TYPES[key].img;
             }
-
             updateExposure();
             renderBoard();
             renderToolbar();
             showMessage('已洗牌');
         }
 
-        /** 重开/下一关 */
         function handleRestart() {
             if (gameOver && isVictory) {
                 levelIndex = Math.min(levelIndex + 1, LEVELS.length - 1);
@@ -704,14 +981,10 @@
             initGame();
         }
 
-        // ======================================================
-        // ============== 渲染 ======================
-        // ======================================================
-
+        // ===================== 渲染 =====================
         function renderBoard() {
             const board = document.getElementById('board');
             board.innerHTML = '';
-
             const sorted = [...tiles]
                 .filter(t => !t.removed)
                 .sort((a, b) => a.layer - b.layer || a.x - b.x);
@@ -739,7 +1012,6 @@
                 } else {
                     el.classList.add('covered');
                 }
-
                 board.appendChild(el);
             }
         }
@@ -747,7 +1019,6 @@
         function renderSlot() {
             const slotEl = document.getElementById('slot');
             slotEl.innerHTML = '';
-
             for (let i = 0; i < CONFIG.slotCapacity; i++) {
                 const cell = document.createElement('div');
                 cell.className = 'slot-cell';
@@ -772,12 +1043,8 @@
             document.getElementById('btn-shuffle').classList.toggle('used', usedTools.shuffle);
         }
 
-        // ======================================================
-        // ============== 消息 ======================
-        // ======================================================
-
+        // ===================== 消息 =====================
         let messageTimer = null;
-
         function showMessage(text) {
             const msg = document.getElementById('message');
             msg.textContent = text;
@@ -786,27 +1053,141 @@
             messageTimer = setTimeout(() => msg.classList.remove('show'), 1800);
         }
 
-        // ======================================================
-        // ============== 初始化 ======================
-        // ======================================================
+        // ===================== 点击音效（外链 + 兜底） =====================
+        const clickSound = document.getElementById('click-sound');
+        let clickSoundOk = true;
+        let audioCtx = null;
+        clickSound.src = CLICK_SOUND_URL;
+        clickSound.addEventListener('error', () => { clickSoundOk = false; });
 
+        function fallbackClick() {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(900, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(500, audioCtx.currentTime + 0.06);
+                gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.08);
+            } catch (e) {}
+        }
+
+        function playClickSound() {
+            if (clickSoundOk) {
+                try {
+                    clickSound.currentTime = 0;
+                    const p = clickSound.play();
+                    if (p && p.catch) p.catch(() => fallbackClick());
+                    return;
+                } catch (e) {}
+            }
+            fallbackClick();
+        }
+
+        // ===================== 排行榜 / 计时 =====================
+        const STORAGE_KEY = 'yuelegeba_leaderboard';
+        let roundStartTime = null;
+
+        function startRoundTimer() {
+            roundStartTime = Date.now();
+        }
+
+        function finishRound(win) {
+            if (roundStartTime === null) return;
+            const elapsed = ((Date.now() - roundStartTime) / 1000).toFixed(1);
+            const record = {
+                level: Math.min(levelIndex + 1, LEVELS.length),
+                time: elapsed,
+                result: win ? '成功' : '失败',
+                date: new Date().toLocaleString()
+            };
+            let records = [];
+            try { records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { records = []; }
+            records.push(record);
+            if (records.length > 100) records = records.slice(-100);
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); } catch (e) {}
+            roundStartTime = null;
+        }
+
+        function renderLeaderboard() {
+            let records = [];
+            try { records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { records = []; }
+            const body = document.getElementById('leaderboard-body');
+            if (!records.length) {
+                body.innerHTML = '<div class="empty-tip">暂无记录，快来玩一局吧～</div>';
+                return;
+            }
+            const rows = [...records].reverse().map(r => {
+                const cls = r.result === '成功' ? 'win' : 'fail';
+                return `<tr><td>第${r.level}关</td><td>${r.time}秒</td><td class="${cls}">${r.result}</td><td>${r.date}</td></tr>`;
+            }).join('');
+            body.innerHTML = `<table id="leaderboard-table"><thead><tr><th>关卡</th><th>用时</th><th>结果</th><th>完成时间</th></tr></thead><tbody>${rows}</tbody></table>`;
+        }
+
+        function openModal(id) {
+            document.getElementById(id).classList.add('show');
+        }
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('show');
+        }
+
+        function showLevel5Modal() {
+            document.getElementById('level5-img').src = LEVEL5_IMAGE_URL;
+            openModal('level5-modal');
+        }
+
+        // ===================== 背景音乐 =====================
+        const bgm = document.getElementById('bgm');
+        const btnMusic = document.getElementById('btn-music');
+        const btnSong = document.getElementById('btn-song');
+        let musicOn = false;
+
+        btnMusic.addEventListener('click', () => {
+            if (musicOn) {
+                bgm.pause();
+                btnMusic.textContent = '音乐:关';
+            } else {
+                bgm.src = SONGS[currentSongIndex].url;
+                bgm.play().catch(() => {});
+                btnMusic.textContent = '音乐:开';
+            }
+            musicOn = !musicOn;
+        });
+
+        btnSong.addEventListener('click', () => {
+            currentSongIndex = (currentSongIndex + 1) % SONGS.length;
+            if (musicOn) {
+                bgm.src = SONGS[currentSongIndex].url;
+                bgm.play().catch(() => {});
+            }
+            btnSong.textContent = `🎵:${currentSongIndex + 1}`;
+        });
+
+        // ===================== 初始化 =====================
         function initGame() {
             const size = getBoardSize();
             BOARD_W = size.width || 340;
             BOARD_H = size.height || 420;
-
-            // 使用 6x5 网格，保证首层可以放 25~30 张
-            GRID_COLS = 6;
-            GRID_ROWS = 5;
 
             gameOver = false;
             isVictory = false;
             usedTools = { undo: false, remove3: false, shuffle: false };
             lastState = null;
             slot = [];
+            if (victoryTimer) {
+                clearTimeout(victoryTimer);
+                victoryTimer = null;
+            }
 
-            tiles = generateTilesForLevel(levelIndex);
+            startRoundTimer(); // 开始本局计时
 
+            tiles = buildSolvableTiles(levelIndex);
             updateExposure();
             renderBoard();
             renderSlot();
@@ -816,16 +1197,37 @@
             document.getElementById('level-text').textContent = '第 ' + displayLevel + ' 关';
         }
 
-        // ======================================================
-        // ============== 事件绑定 ======================
-        // ======================================================
-
+        // ===================== 事件绑定 =====================
         document.getElementById('btn-undo').addEventListener('click', handleUndo);
         document.getElementById('btn-remove3').addEventListener('click', handleRemove3);
         document.getElementById('btn-shuffle').addEventListener('click', handleShuffle);
         document.getElementById('btn-restart').addEventListener('click', handleRestart);
 
-        // 窗口尺寸变化时重算（简单重开当前关，避免错位）
+        // 排行榜
+        document.getElementById('btn-leaderboard').addEventListener('click', () => {
+            renderLeaderboard();
+            openModal('leaderboard-modal');
+        });
+        document.getElementById('btn-leaderboard-close').addEventListener('click', () => closeModal('leaderboard-modal'));
+        document.getElementById('btn-leaderboard-clear').addEventListener('click', () => {
+            if (confirm('确定清空全部记录吗？')) {
+                localStorage.removeItem(STORAGE_KEY);
+                renderLeaderboard();
+            }
+        });
+        document.getElementById('leaderboard-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeModal('leaderboard-modal');
+        });
+
+        // 第五关通关弹窗
+        document.getElementById('btn-continue-yes').addEventListener('click', () => {
+            closeModal('level5-modal');
+            handleRestart(); // levelIndex 仍为第5关，循环游玩第五关
+        });
+        document.getElementById('btn-continue-no').addEventListener('click', () => {
+            closeModal('level5-modal');
+        });
+
         let resizeTimer = null;
         window.addEventListener('resize', () => {
             if (resizeTimer) clearTimeout(resizeTimer);
