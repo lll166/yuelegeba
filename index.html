@@ -29,11 +29,9 @@
             flex-direction: column;
             background: #f4f2fa;
             box-shadow: 0 0 40px rgba(0, 0, 0, 0.15);
-            /* 危险状态呼吸阴影 */
             transition: box-shadow 0.3s;
         }
 
-        /* ========= 新增：卡槽剩2格时红色呼吸 ========= */
         #game.danger {
             animation: dangerPulse 2s ease-in-out infinite;
         }
@@ -164,7 +162,6 @@
             pointer-events: none;
         }
 
-        /* 消除动画微调，保证连击显示后不遮挡 */
         .tile.matched {
             animation: matchPop 0.3s ease forwards;
         }
@@ -308,6 +305,42 @@
         #message.show {
             opacity: 1;
             transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* ============ 新增：消除指示器（角落动态文字，无边框颜色） ============ */
+        #combo-indicator {
+            position: fixed;
+            right: 12px;
+            bottom: 110px;
+            z-index: 1000;
+            font-size: 24px;
+            font-weight: 800;
+            color: #ff7f00;
+            text-shadow: 0 0 8px rgba(255, 120, 0, 0.6);
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(0) scale(0.8);
+        }
+        #combo-indicator.show {
+            animation: comboPop 0.6s ease forwards;
+        }
+        @keyframes comboPop {
+            0% {
+                opacity: 0;
+                transform: translateY(15px) scale(0.5) rotate(-8deg);
+            }
+            30% {
+                opacity: 1;
+                transform: translateY(0) scale(1.1) rotate(3deg);
+            }
+            60% {
+                opacity: 1;
+                transform: translateY(-15px) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-30px) scale(0.7);
+            }
         }
 
         /* ============ 弹窗（通用） ============ */
@@ -478,6 +511,11 @@
                 padding: 4px 8px;
                 font-size: 12px;
             }
+            #combo-indicator {
+                right: 6px;
+                bottom: 95px;
+                font-size: 20px;
+            }
         }
         @media (min-width: 480px) {
             .tile {
@@ -521,13 +559,15 @@
         </div>
     </div>
 
+    <!-- 新增：连击指示器 -->
+    <div id="combo-indicator"></div>
+
     <div id="game">
         <div id="header">
             <span class="title">月了个巴</span>
             <span class="level-badge" id="level-text">第 1 关</span>
             <span class="level-badge music-btn" id="btn-music">音乐:关</span>
             <span class="level-badge music-btn" id="btn-song">🎵:1</span>
-            <!-- 新增：每日挑战入口按钮 -->
             <span class="level-badge music-btn" id="btn-daily">🌙 每日</span>
             <span class="level-badge music-btn" id="btn-leaderboard">🏆 排行榜</span>
         </div>
@@ -568,28 +608,30 @@
             bird: { label: '🐦', img: '' },
             horse: { label: '🐴', img: '' },
             octopus: { label: '🐙', img: '' },
-            butterfly: { label: '🦋', img: '' }
+            butterfly: { label: '🦋', img: '' },
+            elephant: { label: '🐘', img: '' },
+            fish: { label: '🐟', img: '' },
+            dragon: { label: '🐉', img: '' },
+            snake: { label: '🐍', img: '' }
         };
 
         /* ============================================================
-         * 关卡配置说明（仅供开发者）
+         * 关卡配置说明（玩家不可见，仅供开发者）
          * 可自定义每关的 “总牌数”：
          *   layerCount: 层数
          *   typeCount:   图标种类数
          *   totalTiles:  总牌数（必须为3的倍数），留空则按 typeCount 自动计算
-         * 示例：
-         *   { layerCount: 24, typeCount: 14, totalTiles: 126 }
          * ============================================================ */
         const LEVELS = [
-            { layerCount: 2, typeCount: 3, totalTiles: 21 }, // 第一关：21张（3种*7组）
-            { layerCount: 20, typeCount: 10, totalTiles: 144 }, // 第二关：144张（16种*9组）
-            { layerCount: 24, typeCount: 12, totalTiles: 150 }, // 可自由调整 totalTiles
-            { layerCount: 25, typeCount: 14, totalTiles: 156 },
-            { layerCount: 26, typeCount: 16, totalTiles: 189 }
+            { layerCount: 2, typeCount: 3, totalTiles: 21 },
+            { layerCount: 23, typeCount: 16, totalTiles: 144 },
+            { layerCount: 24, typeCount: 16, totalTiles: 150 },
+            { layerCount: 25, typeCount: 16, totalTiles: 156 },
+            { layerCount: 26, typeCount: 16, totalTiles: 162 }
         ];
 
-        // 每日挑战固定配置（也可自定义总牌数）
-        const DAILY_LEVEL = { layerCount: 30, typeCount: 16, totalTiles: 210 };
+        // 每日挑战固定配置：20种卡牌，总牌数210，均匀分配种类
+        const DAILY_LEVEL = { layerCount: 30, typeCount: 20, totalTiles: 210, uniformTypes: true };
 
         const CONFIG = {
             tileSize: 52,
@@ -598,11 +640,11 @@
             totalTypeWeight: 3
         };
 
-        // ===================== 外链资源（可自行替换成你自己的地址） =====================
+        // ===================== 外链资源 =====================
         const CLICK_SOUND_URL = 'https://cdn.jsdelivr.net/gh/lll166/yuelegeba/音效.mp3';
-        const LEVEL5_IMAGE_URL = 'https://picsum.photos/seed/yuelegeba/game-win-sound.mp3';
+        const LEVEL5_IMAGE_URL = 'https://picsum.photos/seed/yuelegeba/game-win-sound';
 
-        // ===================== 歌曲列表（可替换为任意外链MP3） =====================
+        // ===================== 歌曲列表 =====================
         const SONGS = [
             { name: '月了个巴', url: 'https://cdn.jsdelivr.net/gh/lll166/yuelegeba/yuelegeba_min.mp3' },
             { name: '月巴需要番茄能量', url: 'https://cdn.jsdelivr.net/gh/lll166/yuelegeba/月巴需要番茄能量_min.mp3' },
@@ -621,17 +663,16 @@
         let BOARD_H = 420;
         let victoryTimer = null;
 
-        // ===== 新增：连击计数 =====
+        // ===== 连击计数 =====
         let comboCount = 0;
 
-        // ===== 新增：每日挑战模式标识 =====
+        // ===== 每日挑战模式标识 =====
         let isDailyChallenge = false;
 
-        // ===== 新增：可注入随机函数（用于每日挑战种子） =====
+        // ===== 随机函数（用于每日挑战种子） =====
         let randomFunc = Math.random;
 
         // ===================== 工具函数 =====================
-        // 伪随机数生成器：通过种子生成固定序列（mulberry32算法）
         function mulberry32(seed) {
             return function() {
                 seed |= 0;
@@ -642,7 +683,6 @@
             };
         }
 
-        // 根据当天日期生成种子（例如20260214）
         function getDailySeed() {
             const now = new Date();
             return now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
@@ -776,7 +816,7 @@
             return positions;
         }
 
-        // ===================== 关卡生成（必定可解） =====================
+        // ===================== 关卡生成 =====================
         function distributeDecreasing(layerCount, totalTiles) {
             if (layerCount <= 1) return [totalTiles];
             const counts = new Array(layerCount).fill(1);
@@ -833,13 +873,11 @@
             return counts;
         }
 
-        // config: 关卡配置对象（包含 layerCount, typeCount, totalTiles?）
         function buildSolvableTiles(config) {
             const layerCount = config.layerCount;
             const typeCount = config.typeCount;
             const typeKeys = Object.keys(TILE_TYPES).slice(0, typeCount);
 
-            // 支持自定义总牌数（必须为3的倍数），未设置时按类型数自动计算
             let totalTiles;
             if (config.totalTiles !== undefined) {
                 totalTiles = Math.floor(config.totalTiles / 3) * 3;
@@ -887,9 +925,25 @@
 
             const groupCount = totalTiles / 3;
             const groups = [];
-            for (let i = 0; i < typeKeys.length; i++) groups.push(typeKeys[i]);
-            while (groups.length < groupCount) {
-                groups.push(typeKeys[Math.floor(randomFunc() * typeKeys.length)]);
+
+            // ===== 均匀分配：保证每种卡牌数量相近 =====
+            if (config.uniformTypes) {
+                const shuffledTypes = shuffle([...typeKeys]);
+                const baseGroups = Math.floor(groupCount / shuffledTypes.length);
+                const remGroups = groupCount - baseGroups * shuffledTypes.length;
+                for (let i = 0; i < shuffledTypes.length; i++) {
+                    for (let j = 0; j < baseGroups; j++) {
+                        groups.push(shuffledTypes[i]);
+                    }
+                    if (i < remGroups) {
+                        groups.push(shuffledTypes[i]);
+                    }
+                }
+            } else {
+                for (let i = 0; i < typeKeys.length; i++) groups.push(typeKeys[i]);
+                while (groups.length < groupCount) {
+                    groups.push(typeKeys[Math.floor(randomFunc() * typeKeys.length)]);
+                }
             }
             shuffle(groups);
 
@@ -967,7 +1021,7 @@
                 }
             }
 
-            // 连击处理：消除则+1，否则清0
+            // 连击处理：消除则+1，否则清0（从1连击开始显示）
             if (matched) {
                 comboCount++;
                 showComboMessage(comboCount);
@@ -1003,12 +1057,11 @@
             if (slot.length >= CONFIG.slotCapacity) {
                 gameOver = true;
                 isVictory = false;
-                comboCount = 0; // 失败时重置连击
+                comboCount = 0;
                 finishRound(false);
                 document.getElementById('slot').classList.add('shake');
                 setTimeout(() => document.getElementById('slot').classList.remove('shake'), 500);
 
-                // 新增：移动端震动反馈
                 if (navigator.vibrate) {
                     navigator.vibrate(200);
                 }
@@ -1086,7 +1139,6 @@
         }
 
         function handleRestart() {
-            // 每日挑战模式下不自动进入下一关
             if (gameOver && isVictory && !isDailyChallenge) {
                 levelIndex = Math.min(levelIndex + 1, LEVELS.length - 1);
             }
@@ -1148,7 +1200,6 @@
                 slotEl.appendChild(cell);
             }
 
-            // 新增：卡槽剩2格或更少时，页面边缘红色呼吸
             const gameEl = document.getElementById('game');
             if (slot.length >= CONFIG.slotCapacity - 2) {
                 gameEl.classList.add('danger');
@@ -1178,19 +1229,13 @@
             messageTimer = setTimeout(() => msg.classList.remove('show'), 1800);
         }
 
-        // 新增：连击提示（不同连击数不同背景色）
+        // ===== 连击提示（独立角落动画，无边框颜色，从1开始显示） =====
         function showComboMessage(combo) {
-            if (combo < 2) return;
-            const colors = [
-                '', // 占位
-                '',
-                'rgba(75, 0, 130, 0.85)', // 2连击 深紫色
-                'rgba(255, 140, 0, 0.85)', // 3连击 橙色
-                'rgba(220, 20, 60, 0.85)', // 4连击 绯红
-                'rgba(220, 20, 60, 0.95)' // 5+连击 深红
-            ];
-            const color = colors[Math.min(combo, colors.length - 1)];
-            showMessage('🔥 ' + combo + ' 连击!', color);
+            const el = document.getElementById('combo-indicator');
+            el.textContent = '🔥 '  + ' 消除!';
+            el.classList.remove('show');
+            void el.offsetWidth;
+            el.classList.add('show');
         }
 
         // ===================== 点击音效 =====================
@@ -1262,7 +1307,6 @@
         function finishRound(win) {
             if (roundStartTime === null) return;
             const elapsed = ((Date.now() - roundStartTime) / 1000).toFixed(1);
-            // 每日挑战的关卡记录为“每日”，普通关卡显示数字
             const level = isDailyChallenge ? '每日' : Math.min(levelIndex + 1, LEVELS.length);
             const record = {
                 level: level,
@@ -1367,7 +1411,7 @@
             usedTools = { undo: false, remove3: false, shuffle: false };
             lastState = null;
             slot = [];
-            comboCount = 0; // 重置连击
+            comboCount = 0;
             if (victoryTimer) {
                 clearTimeout(victoryTimer);
                 victoryTimer = null;
@@ -1376,10 +1420,9 @@
             startRoundTimer();
 
             if (isDailyChallenge) {
-                // 每日挑战：使用日期种子生成固定布局
                 randomFunc = mulberry32(getDailySeed());
                 tiles = buildSolvableTiles(DAILY_LEVEL);
-                randomFunc = Math.random; // 恢复全局随机
+                randomFunc = Math.random;
                 document.getElementById('level-text').textContent = '🌙 每日挑战';
             } else {
                 randomFunc = Math.random;
@@ -1399,19 +1442,17 @@
         document.getElementById('btn-shuffle').addEventListener('click', handleShuffle);
         document.getElementById('btn-restart').addEventListener('click', handleRestart);
 
-        // 每日挑战切换
         const btnDaily = document.getElementById('btn-daily');
         btnDaily.addEventListener('click', () => {
             isDailyChallenge = !isDailyChallenge;
             if (!isDailyChallenge) {
-                levelIndex = 0; // 返回普通第一关
+                levelIndex = 0;
             }
             handleRestart();
             btnDaily.textContent = isDailyChallenge ? '⭐ 普通' : '🌙 每日';
             showMessage(isDailyChallenge ? '🌙 每日挑战已开启' : '普通模式');
         });
 
-        // 排行榜
         document.getElementById('btn-leaderboard').addEventListener('click', () => {
             renderLeaderboard();
             openModal('leaderboard-modal');
@@ -1428,7 +1469,6 @@
             if (e.target === e.currentTarget) closeModal('leaderboard-modal');
         });
 
-        // 第五关通关弹窗
         document.getElementById('btn-continue-yes').addEventListener('click', () => {
             closeModal('level5-modal');
             handleRestart();
@@ -1445,12 +1485,15 @@
                 if (size.width > 0 && size.height > 0) {
                     BOARD_W = size.width;
                     BOARD_H = size.height;
-                    initGame();
+                    // 仅更新尺寸并重绘，保持当前游戏进度，不重新生成关卡
+                    updateExposure();
+                    renderBoard();
+                    renderSlot();
+                    renderToolbar();
                 }
             }, 300);
         });
 
-        // 启动
         initGame();
     </script>
 </body>
