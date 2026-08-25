@@ -29,6 +29,24 @@
             flex-direction: column;
             background: #f4f2fa;
             box-shadow: 0 0 40px rgba(0, 0, 0, 0.15);
+            /* 危险状态呼吸阴影 */
+            transition: box-shadow 0.3s;
+        }
+
+        /* ========= 新增：卡槽剩2格时红色呼吸 ========= */
+        #game.danger {
+            animation: dangerPulse 2s ease-in-out infinite;
+        }
+        @keyframes dangerPulse {
+            0%,
+            100% {
+                outline: 4px solid rgba(255, 0, 0, 0.2);
+                box-shadow: 0 0 30px rgba(255, 0, 0, 0.15);
+            }
+            50% {
+                outline: 6px solid rgba(255, 0, 0, 0.7);
+                box-shadow: 0 0 80px rgba(255, 0, 0, 0.45);
+            }
         }
 
         #header {
@@ -145,12 +163,15 @@
             object-fit: contain;
             pointer-events: none;
         }
+
+        /* 消除动画微调，保证连击显示后不遮挡 */
         .tile.matched {
-            animation: matchPop 0.3s ease;
+            animation: matchPop 0.3s ease forwards;
         }
         @keyframes matchPop {
             0% {
                 transform: scale(1);
+                opacity: 1;
             }
             50% {
                 transform: scale(1.2);
@@ -282,6 +303,7 @@
             text-align: center;
             line-height: 1.5;
             backdrop-filter: blur(8px);
+            white-space: nowrap;
         }
         #message.show {
             opacity: 1;
@@ -505,6 +527,8 @@
             <span class="level-badge" id="level-text">第 1 关</span>
             <span class="level-badge music-btn" id="btn-music">音乐:关</span>
             <span class="level-badge music-btn" id="btn-song">🎵:1</span>
+            <!-- 新增：每日挑战入口按钮 -->
+            <span class="level-badge music-btn" id="btn-daily">🌙 每日</span>
             <span class="level-badge music-btn" id="btn-leaderboard">🏆 排行榜</span>
         </div>
 
@@ -547,13 +571,25 @@
             butterfly: { label: '🦋', img: '' }
         };
 
+        /* ============================================================
+         * 关卡配置说明（仅供开发者）
+         * 可自定义每关的 “总牌数”：
+         *   layerCount: 层数
+         *   typeCount:   图标种类数
+         *   totalTiles:  总牌数（必须为3的倍数），留空则按 typeCount 自动计算
+         * 示例：
+         *   { layerCount: 24, typeCount: 14, totalTiles: 126 }
+         * ============================================================ */
         const LEVELS = [
-            { layerCount: 2, typeCount: 3 },
-            { layerCount: 23, typeCount: 16 },
-            { layerCount: 24, typeCount: 16 },
-            { layerCount: 25, typeCount: 16 },
-            { layerCount: 26, typeCount: 16 }
+            { layerCount: 2, typeCount: 3, totalTiles: 21 }, // 第一关：21张（3种*7组）
+            { layerCount: 20, typeCount: 10, totalTiles: 144 }, // 第二关：144张（16种*9组）
+            { layerCount: 24, typeCount: 12, totalTiles: 150 }, // 可自由调整 totalTiles
+            { layerCount: 25, typeCount: 14, totalTiles: 156 },
+            { layerCount: 26, typeCount: 16, totalTiles: 189 }
         ];
+
+        // 每日挑战固定配置（也可自定义总牌数）
+        const DAILY_LEVEL = { layerCount: 30, typeCount: 16, totalTiles: 210 };
 
         const CONFIG = {
             tileSize: 52,
@@ -564,13 +600,12 @@
 
         // ===================== 外链资源（可自行替换成你自己的地址） =====================
         const CLICK_SOUND_URL = 'https://cdn.jsdelivr.net/gh/lll166/yuelegeba/音效.mp3';
-        const LEVEL5_IMAGE_URL = 'https://picsum.photos/seed/yuelegeba/game-win-sound';
+        const LEVEL5_IMAGE_URL = 'https://picsum.photos/seed/yuelegeba/game-win-sound.mp3';
 
         // ===================== 歌曲列表（可替换为任意外链MP3） =====================
         const SONGS = [
             { name: '月了个巴', url: 'https://cdn.jsdelivr.net/gh/lll166/yuelegeba/yuelegeba_min.mp3' },
             { name: '月巴需要番茄能量', url: 'https://cdn.jsdelivr.net/gh/lll166/yuelegeba/月巴需要番茄能量_min.mp3' },
-
         ];
         let currentSongIndex = 0;
 
@@ -586,10 +621,36 @@
         let BOARD_H = 420;
         let victoryTimer = null;
 
+        // ===== 新增：连击计数 =====
+        let comboCount = 0;
+
+        // ===== 新增：每日挑战模式标识 =====
+        let isDailyChallenge = false;
+
+        // ===== 新增：可注入随机函数（用于每日挑战种子） =====
+        let randomFunc = Math.random;
+
         // ===================== 工具函数 =====================
+        // 伪随机数生成器：通过种子生成固定序列（mulberry32算法）
+        function mulberry32(seed) {
+            return function() {
+                seed |= 0;
+                seed = seed + 0x6D2B79F5 | 0;
+                let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+                t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+
+        // 根据当天日期生成种子（例如20260214）
+        function getDailySeed() {
+            const now = new Date();
+            return now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+        }
+
         function shuffle(arr) {
             for (let i = arr.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
+                const j = Math.floor(randomFunc() * (i + 1));
                 [arr[i], arr[j]] = [arr[j], arr[i]];
             }
             return arr;
@@ -619,7 +680,6 @@
         }
 
         // ===================== 位置生成 =====================
-        // 顶层位置：围绕中心离散，同层不交叠
         function generateTopPositions(count) {
             const positions = [];
             const tileSize = CONFIG.tileSize;
@@ -630,8 +690,8 @@
             let attempts = 0;
             while (positions.length < count && attempts < 8000) {
                 attempts++;
-                const angle = Math.random() * Math.PI * 2;
-                const dist = Math.pow(Math.random(), 0.55) * maxRadius;
+                const angle = randomFunc() * Math.PI * 2;
+                const dist = Math.pow(randomFunc(), 0.55) * maxRadius;
                 const x = clamp(Math.round(cx + Math.cos(angle) * dist), 0, BOARD_W - tileSize);
                 const y = clamp(Math.round(cy + Math.sin(angle) * dist), 0, BOARD_H - tileSize);
                 const rect = { x, y, w: tileSize, h: tileSize };
@@ -641,7 +701,6 @@
                 }
             }
 
-            // 网格补充：确保数量足够
             let seed = 0;
             while (positions.length < count && seed < 5000) {
                 seed++;
@@ -662,7 +721,6 @@
             return positions;
         }
 
-        // 下层位置：基于上层位置偏移，保持围绕中心，同层不交叠
         function generateLowerLayerPositions(upperPositions, count) {
             const positions = [];
             const tileSize = CONFIG.tileSize;
@@ -675,12 +733,11 @@
             while (positions.length < count && idx < basePool.length) {
                 const base = basePool[idx];
                 idx++;
-                // 只利用靠近中心的基准点，保证整体不过于离散
                 if (Math.hypot(base.x + tileSize / 2 - cx, base.y + tileSize / 2 - cy) > maxRadius) {
                     continue;
                 }
-                const angle = Math.random() * Math.PI * 2;
-                const dist = 6 + Math.random() * 12;
+                const angle = randomFunc() * Math.PI * 2;
+                const dist = 6 + randomFunc() * 12;
                 const x = clamp(Math.round(base.x + Math.cos(angle) * dist), 0, BOARD_W - tileSize);
                 const y = clamp(Math.round(base.y + Math.sin(angle) * dist), 0, BOARD_H - tileSize);
                 const rect = { x, y, w: tileSize, h: tileSize };
@@ -690,13 +747,12 @@
                 }
             }
 
-            // 不足时围绕中心补充
             const supplementRadius = Math.min(BOARD_W, BOARD_H) * 0.24;
             let attempts = 0;
             while (positions.length < count && attempts < 8000) {
                 attempts++;
-                const angle = Math.random() * Math.PI * 2;
-                const dist = Math.pow(Math.random(), 0.7) * supplementRadius;
+                const angle = randomFunc() * Math.PI * 2;
+                const dist = Math.pow(randomFunc(), 0.7) * supplementRadius;
                 const x = clamp(Math.round(cx + Math.cos(angle) * dist), 0, BOARD_W - tileSize);
                 const y = clamp(Math.round(cy + Math.sin(angle) * dist), 0, BOARD_H - tileSize);
                 const rect = { x, y, w: tileSize, h: tileSize };
@@ -706,7 +762,6 @@
                 }
             }
 
-            // 极端兜底
             let seed = 0;
             while (positions.length < count && seed < 3000) {
                 seed++;
@@ -727,7 +782,7 @@
             const counts = new Array(layerCount).fill(1);
             let remaining = totalTiles - layerCount;
 
-            let topExtra = Math.round(remaining * (0.40 + Math.random() * 0.10));
+            let topExtra = Math.round(remaining * (0.40 + randomFunc() * 0.10));
             topExtra = Math.min(topExtra, remaining);
             counts[layerCount - 1] += topExtra;
             remaining -= topExtra;
@@ -778,18 +833,23 @@
             return counts;
         }
 
-        function buildSolvableTiles(levelIndex) {
-            const level = LEVELS[levelIndex];
-            const layerCount = level.layerCount;
-            const typeCount = level.typeCount;
+        // config: 关卡配置对象（包含 layerCount, typeCount, totalTiles?）
+        function buildSolvableTiles(config) {
+            const layerCount = config.layerCount;
+            const typeCount = config.typeCount;
             const typeKeys = Object.keys(TILE_TYPES).slice(0, typeCount);
 
-            let totalTiles = (levelIndex === 0) ? 21 : typeCount * CONFIG.totalTypeWeight * 3;
-            totalTiles = Math.floor(totalTiles / 3) * 3;
+            // 支持自定义总牌数（必须为3的倍数），未设置时按类型数自动计算
+            let totalTiles;
+            if (config.totalTiles !== undefined) {
+                totalTiles = Math.floor(config.totalTiles / 3) * 3;
+            } else {
+                totalTiles = (typeCount <= 3) ? 21 : typeCount * CONFIG.totalTypeWeight * 3;
+                totalTiles = Math.floor(totalTiles / 3) * 3;
+            }
 
             const layerCounts = distributeDecreasing(layerCount, totalTiles);
 
-            // 生成每一层的位置（从顶层向下）
             const layerPositions = [];
             let upperPositions = null;
             for (let layer = layerCount - 1; layer >= 0; layer--) {
@@ -804,7 +864,6 @@
                 upperPositions = positions;
             }
 
-            // 构造 tiles
             const tiles = [];
             let id = 0;
             for (let layer = 0; layer < layerCount; layer++) {
@@ -821,18 +880,16 @@
                 }
             }
 
-            // 按层降序排序，同层打乱顺序
             const sortedTiles = [...tiles].sort((a, b) => {
                 if (a.layer !== b.layer) return b.layer - a.layer;
-                return Math.random() - 0.5;
+                return randomFunc() - 0.5;
             });
 
-            // 每3张一组分配类型（确保可通关）
             const groupCount = totalTiles / 3;
             const groups = [];
             for (let i = 0; i < typeKeys.length; i++) groups.push(typeKeys[i]);
             while (groups.length < groupCount) {
-                groups.push(typeKeys[Math.floor(Math.random() * typeKeys.length)]);
+                groups.push(typeKeys[Math.floor(randomFunc() * typeKeys.length)]);
             }
             shuffle(groups);
 
@@ -885,7 +942,7 @@
             if (!tile || tile.removed || !tile.exposed) return;
             if (slot.length >= CONFIG.slotCapacity) return;
 
-            playClickSound(); // 点击音效
+            playClickSound();
 
             saveSnapshot();
             tile.removed = true;
@@ -893,19 +950,29 @@
 
             slot.push({ id: tile.id, type: tile.type, label: tile.label, img: tile.img });
 
+            let matched = false;
             if (slot.length >= 3) {
                 const len = slot.length;
                 const t1 = slot[len - 1];
                 const t2 = slot[len - 2];
                 const t3 = slot[len - 3];
                 if (t1.type === t2.type && t2.type === t3.type) {
-                    const matched = slot.splice(len - 3, 3);
-                    matched.forEach(m => {
+                    matched = true;
+                    const matchedItems = slot.splice(len - 3, 3);
+                    matchedItems.forEach(m => {
                         document.querySelectorAll(`.tile[data-id="${m.id}"]`).forEach(el => {
                             el.classList.add('matched');
                         });
                     });
                 }
+            }
+
+            // 连击处理：消除则+1，否则清0
+            if (matched) {
+                comboCount++;
+                showComboMessage(comboCount);
+            } else {
+                comboCount = 0;
             }
 
             updateExposure();
@@ -919,12 +986,15 @@
             if (allRemoved) {
                 gameOver = true;
                 isVictory = true;
-                finishRound(true); // 记录成功
-                if (levelIndex === LEVELS.length - 1) {
-                    // 第五关通关 → 弹窗询问是否继续
+                finishRound(true);
+                if (!isDailyChallenge && levelIndex === LEVELS.length - 1) {
                     showLevel5Modal();
                 } else {
-                    showMessage('🎉 通关成功！');
+                    if (isDailyChallenge) {
+                        showMessage('🌙 每日挑战通关！');
+                    } else {
+                        showMessage('🎉 通关成功！');
+                    }
                     if (victoryTimer) clearTimeout(victoryTimer);
                     victoryTimer = setTimeout(() => { handleRestart(); }, 1500);
                 }
@@ -933,9 +1003,16 @@
             if (slot.length >= CONFIG.slotCapacity) {
                 gameOver = true;
                 isVictory = false;
-                finishRound(false); // 记录失败
+                comboCount = 0; // 失败时重置连击
+                finishRound(false);
                 document.getElementById('slot').classList.add('shake');
                 setTimeout(() => document.getElementById('slot').classList.remove('shake'), 500);
+
+                // 新增：移动端震动反馈
+                if (navigator.vibrate) {
+                    navigator.vibrate(200);
+                }
+
                 showMessage('💔 卡槽已满，失败！');
             }
         }
@@ -944,6 +1021,7 @@
         function handleUndo() {
             if (gameOver || usedTools.undo || !lastState) return;
             usedTools.undo = true;
+            comboCount = 0;
             tiles = lastState.tiles.map(t => ({ ...t }));
             slot = lastState.slot.map(s => ({ ...s }));
             lastState = null;
@@ -961,6 +1039,7 @@
             if (gameOver || usedTools.remove3 || slot.length === 0) return;
             usedTools.remove3 = true;
             lastState = null;
+            comboCount = 0;
 
             const count = Math.min(3, slot.length);
             const removed = slot.splice(slot.length - count, count);
@@ -975,8 +1054,8 @@
                 if (tile) {
                     tile.removed = false;
                     tile.layer = newLayer;
-                    tile.x = clamp(Math.round(cx + (Math.random() - 0.5) * BOARD_W * 0.45), 0, BOARD_W - CONFIG.tileSize);
-                    tile.y = clamp(Math.round(cy + (Math.random() - 0.5) * BOARD_H * 0.45), 0, BOARD_H - CONFIG.tileSize);
+                    tile.x = clamp(Math.round(cx + (randomFunc() - 0.5) * BOARD_W * 0.45), 0, BOARD_W - CONFIG.tileSize);
+                    tile.y = clamp(Math.round(cy + (randomFunc() - 0.5) * BOARD_H * 0.45), 0, BOARD_H - CONFIG.tileSize);
                 }
             }
             updateExposure();
@@ -990,6 +1069,7 @@
             if (gameOver || usedTools.shuffle) return;
             usedTools.shuffle = true;
             lastState = null;
+            comboCount = 0;
             const remaining = tiles.filter(t => !t.removed);
             const typeKeys = remaining.map(t => t.type);
             shuffle(typeKeys);
@@ -1006,7 +1086,8 @@
         }
 
         function handleRestart() {
-            if (gameOver && isVictory) {
+            // 每日挑战模式下不自动进入下一关
+            if (gameOver && isVictory && !isDailyChallenge) {
                 levelIndex = Math.min(levelIndex + 1, LEVELS.length - 1);
             }
             initGame();
@@ -1066,6 +1147,14 @@
                 }
                 slotEl.appendChild(cell);
             }
+
+            // 新增：卡槽剩2格或更少时，页面边缘红色呼吸
+            const gameEl = document.getElementById('game');
+            if (slot.length >= CONFIG.slotCapacity - 2) {
+                gameEl.classList.add('danger');
+            } else {
+                gameEl.classList.remove('danger');
+            }
         }
 
         function renderToolbar() {
@@ -1076,15 +1165,35 @@
 
         // ===================== 消息 =====================
         let messageTimer = null;
-        function showMessage(text) {
+        function showMessage(text, bgColor) {
             const msg = document.getElementById('message');
             msg.textContent = text;
+            if (bgColor) {
+                msg.style.backgroundColor = bgColor;
+            } else {
+                msg.style.backgroundColor = 'rgba(40, 36, 60, 0.92)';
+            }
             msg.classList.add('show');
             if (messageTimer) clearTimeout(messageTimer);
             messageTimer = setTimeout(() => msg.classList.remove('show'), 1800);
         }
 
-        // ===================== 点击音效（外链 + 兜底） =====================
+        // 新增：连击提示（不同连击数不同背景色）
+        function showComboMessage(combo) {
+            if (combo < 2) return;
+            const colors = [
+                '', // 占位
+                '',
+                'rgba(75, 0, 130, 0.85)', // 2连击 深紫色
+                'rgba(255, 140, 0, 0.85)', // 3连击 橙色
+                'rgba(220, 20, 60, 0.85)', // 4连击 绯红
+                'rgba(220, 20, 60, 0.95)' // 5+连击 深红
+            ];
+            const color = colors[Math.min(combo, colors.length - 1)];
+            showMessage('🔥 ' + combo + ' 连击!', color);
+        }
+
+        // ===================== 点击音效 =====================
         const clickSound = document.getElementById('click-sound');
         let clickSoundOk = true;
         let audioCtx = null;
@@ -1121,7 +1230,7 @@
             fallbackClick();
         }
 
-        // ===================== 排行榜 / 计时（含分关卡最佳成绩） =====================
+        // ===================== 排行榜 / 计时 =====================
         const STORAGE_KEY = 'yuelegeba_leaderboard';
         const BEST_STORAGE_KEY = 'yuelegeba_best';
         let roundStartTime = null;
@@ -1153,7 +1262,8 @@
         function finishRound(win) {
             if (roundStartTime === null) return;
             const elapsed = ((Date.now() - roundStartTime) / 1000).toFixed(1);
-            const level = Math.min(levelIndex + 1, LEVELS.length);
+            // 每日挑战的关卡记录为“每日”，普通关卡显示数字
+            const level = isDailyChallenge ? '每日' : Math.min(levelIndex + 1, LEVELS.length);
             const record = {
                 level: level,
                 time: elapsed,
@@ -1173,13 +1283,12 @@
         }
 
         function renderLeaderboard() {
-            // 1. 分关卡最佳成绩
             const bestRecords = loadBestRecords();
             let bestHtml = '';
             if (bestRecords.length) {
                 let rows = '';
                 for (const rec of bestRecords) {
-                    rows += `<tr><td>第${rec.level}关</td><td>${rec.bestTime}秒</td></tr>`;
+                    rows += `<tr><td>${rec.level === '每日' ? '🌙每日' : '第' + rec.level + '关'}</td><td>${rec.bestTime}秒</td></tr>`;
                 }
                 bestHtml = `
                     <div class="best-section">
@@ -1193,7 +1302,6 @@
                 bestHtml = '<div class="best-section" style="text-align:center;font-size:13px;color:#999;">分关卡最佳成绩：暂无</div>';
             }
 
-            // 2. 全部通关/失败记录
             let records = [];
             try { records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { records = []; }
             const body = document.getElementById('leaderboard-body');
@@ -1203,7 +1311,8 @@
             }
             const rows = [...records].reverse().map(r => {
                 const cls = r.result === '成功' ? 'win' : 'fail';
-                return `<tr><td>第${r.level}关</td><td>${r.time}秒</td><td class="${cls}">${r.result}</td><td>${r.date}</td></tr>`;
+                const levelText = r.level === '每日' ? '🌙每日' : `第${r.level}关`;
+                return `<tr><td>${levelText}</td><td>${r.time}秒</td><td class="${cls}">${r.result}</td><td>${r.date}</td></tr>`;
             }).join('');
             body.innerHTML = bestHtml + `<table id="leaderboard-table"><thead><tr><th>关卡</th><th>用时</th><th>结果</th><th>完成时间</th></tr></thead><tbody>${rows}</tbody></table>`;
         }
@@ -1258,21 +1367,30 @@
             usedTools = { undo: false, remove3: false, shuffle: false };
             lastState = null;
             slot = [];
+            comboCount = 0; // 重置连击
             if (victoryTimer) {
                 clearTimeout(victoryTimer);
                 victoryTimer = null;
             }
 
-            startRoundTimer(); // 开始本局计时
+            startRoundTimer();
 
-            tiles = buildSolvableTiles(levelIndex);
+            if (isDailyChallenge) {
+                // 每日挑战：使用日期种子生成固定布局
+                randomFunc = mulberry32(getDailySeed());
+                tiles = buildSolvableTiles(DAILY_LEVEL);
+                randomFunc = Math.random; // 恢复全局随机
+                document.getElementById('level-text').textContent = '🌙 每日挑战';
+            } else {
+                randomFunc = Math.random;
+                tiles = buildSolvableTiles(LEVELS[levelIndex]);
+                document.getElementById('level-text').textContent = '第 ' + (levelIndex + 1) + ' 关';
+            }
+
             updateExposure();
             renderBoard();
             renderSlot();
             renderToolbar();
-
-            const displayLevel = Math.min(levelIndex + 1, LEVELS.length);
-            document.getElementById('level-text').textContent = '第 ' + displayLevel + ' 关';
         }
 
         // ===================== 事件绑定 =====================
@@ -1280,6 +1398,18 @@
         document.getElementById('btn-remove3').addEventListener('click', handleRemove3);
         document.getElementById('btn-shuffle').addEventListener('click', handleShuffle);
         document.getElementById('btn-restart').addEventListener('click', handleRestart);
+
+        // 每日挑战切换
+        const btnDaily = document.getElementById('btn-daily');
+        btnDaily.addEventListener('click', () => {
+            isDailyChallenge = !isDailyChallenge;
+            if (!isDailyChallenge) {
+                levelIndex = 0; // 返回普通第一关
+            }
+            handleRestart();
+            btnDaily.textContent = isDailyChallenge ? '⭐ 普通' : '🌙 每日';
+            showMessage(isDailyChallenge ? '🌙 每日挑战已开启' : '普通模式');
+        });
 
         // 排行榜
         document.getElementById('btn-leaderboard').addEventListener('click', () => {
@@ -1301,7 +1431,7 @@
         // 第五关通关弹窗
         document.getElementById('btn-continue-yes').addEventListener('click', () => {
             closeModal('level5-modal');
-            handleRestart(); // levelIndex 仍为第5关，循环游玩第五关
+            handleRestart();
         });
         document.getElementById('btn-continue-no').addEventListener('click', () => {
             closeModal('level5-modal');
