@@ -299,17 +299,18 @@
             transform: translate(-50%, -50%) scale(0.9);
             background: rgba(40, 36, 60, 0.92);
             color: #fff;
-            padding: 20px 32px;
+            padding: 16px 24px;
             border-radius: 16px;
-            font-size: 20px;
+            font-size: 18px;
             z-index: 999;
             pointer-events: none;
             opacity: 0;
             transition: opacity 0.3s, transform 0.3s;
             text-align: center;
-            line-height: 1.5;
+            line-height: 1.4;
             backdrop-filter: blur(8px);
-            white-space: nowrap;
+            white-space: normal;
+            max-width: 90vw;
         }
         #message.show {
             opacity: 1;
@@ -624,7 +625,7 @@
             <p>从第一关开始，还是继续当前关卡？</p>
             <div class="modal-buttons">
                 <button class="btn-primary" id="btn-fail-retry">继续本关</button>
-                <button class="btn-secondary" id="btn-fail-level1">第一关</button>
+                <button class="btn-secondary" id="btn-fail-level1">从第一关</button>
             </div>
         </div>
     </div>
@@ -724,8 +725,8 @@
             },
             {
                 id: 'blind',
-                name: '下层不可见',
-                config: { layerCount: 11, typeCount: 20, totalTiles: 220, aligned: true },
+                name: '写层不可见',
+                config: { layerCount: 6, typeCount: 16, totalTiles: 162, aligned: true },
                 slotCapacity: 7
             }
         ];
@@ -769,8 +770,12 @@
         let modeGame = 'normal';
         // 挑战分类索引
         let challengeIndex = 0;
-        // 当前是否是对齐无提示的“看不到下层”挑战
+        // 当前是否是对齐无提示的“下层不可见”挑战
         let isAlignedLevel = false;
+
+        // 每日挑战 100 秒皇冠状态
+        const CROWN_STORAGE_KEY = 'yuelegeba_daily_crown';
+        let dailyCrownActive = false;
 
         // ===== 随机函数（用于每日挑战种子） =====
         let randomFunc = Math.random;
@@ -820,6 +825,32 @@
             const wrapper = document.getElementById('board-wrapper');
             const rect = wrapper.getBoundingClientRect();
             return { width: rect.width, height: rect.height };
+        }
+
+        // ===== 北京时间日期工具 =====
+        function getBeijingDateString() {
+            const now = new Date();
+            // 北京时间 = UTC+8
+            const beijing = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+            return beijing.toISOString().slice(0, 10);
+        }
+
+        function updateDailyCrownStatus() {
+            const today = getBeijingDateString();
+            try {
+                const data = JSON.parse(localStorage.getItem(CROWN_STORAGE_KEY) || 'null');
+                dailyCrownActive = !!(data && data.date === today);
+            } catch (e) {
+                dailyCrownActive = false;
+            }
+        }
+
+        function setDailyCrown() {
+            dailyCrownActive = true;
+            const dateStr = getBeijingDateString();
+            try {
+                localStorage.setItem(CROWN_STORAGE_KEY, JSON.stringify({ date: dateStr }));
+            } catch (e) {}
         }
 
         // ===================== 位置生成 =====================
@@ -919,7 +950,7 @@
             return positions;
         }
 
-        // ===================== 对齐关卡位置生成（看不到下层） =====================
+        // ===================== 对齐关卡位置生成（下层不可见） =====================
         function generateAlignedPositions(count) {
             const positions = [];
             const tileSize = CONFIG.tileSize;
@@ -1183,6 +1214,17 @@
             return CONFIG.slotCapacity;
         }
 
+        // “下层不可见”挑战：卡槽末尾两张是否与点击牌同类型（再点一张即可三消）
+        function canEliminateWith(type) {
+            const len = slot.length;
+            return len >= 2 && slot[len - 1].type === type && slot[len - 2].type === type;
+        }
+
+        // “下层不可见”挑战：是否存在可消除的牌（卡槽满时是否还能继续）
+        function canEliminate() {
+            return tiles.some(t => !t.removed && t.exposed && canEliminateWith(t.type));
+        }
+
         // ===================== 核心逻辑 =====================
         function saveSnapshot() {
             lastState = {
@@ -1195,7 +1237,9 @@
             if (gameOver) return;
             const tile = tiles.find(t => t.id === id);
             if (!tile || tile.removed || !tile.exposed) return;
-            if (slot.length >= getSlotCapacity()) return;
+            if (slot.length >= getSlotCapacity()) {
+                if (!isAlignedLevel || !canEliminateWith(tile.type)) return;
+            }
 
             playClickSound();
 
@@ -1240,23 +1284,40 @@
             if (allRemoved) {
                 gameOver = true;
                 isVictory = true;
+                let extraMsg = '';
+                // 每日挑战特别判断：100秒内通关
+                if (modeGame === 'daily' && roundStartTime !== null) {
+                    const elapsed = ((Date.now() - roundStartTime) / 1000);
+                    if (elapsed < 100) {
+                        setDailyCrown();
+                        extraMsg = '恭喜你在100秒内通关游戏，你已经是月巴之王了。';
+                    }
+                }
                 finishRound(true);
                 if (modeGame === 'normal' && levelIndex === LEVELS.length - 1) {
                     showFinalLevelModal();
                 } else {
+                    let msg = '';
                     if (modeGame === 'daily') {
-                        showMessage('🌙 每日挑战通关！');
+                        msg = '🌙 每日挑战通关！';
                     } else if (modeGame === 'challenge') {
-                        showMessage('🔥 ' + CHALLENGE_LEVELS[challengeIndex].name + ' 通关！');
+                        msg = '🔥 ' + CHALLENGE_LEVELS[challengeIndex].name + ' 通关！';
                     } else {
-                        showMessage('🎉 通关成功！');
+                        msg = '🎉 通关成功！';
                     }
+                    if (extraMsg) {
+                        msg += '\n' + extraMsg;
+                    }
+                    showMessage(msg);
                     if (victoryTimer) clearTimeout(victoryTimer);
-                    victoryTimer = setTimeout(() => { handleRestart(); }, 1500);
+                    victoryTimer = setTimeout(() => { handleRestart(); }, 2000);
                 }
                 return;
             }
             if (slot.length >= getSlotCapacity()) {
+                if (isAlignedLevel && canEliminate()) {
+                    return;
+                }
                 gameOver = true;
                 isVictory = false;
                 comboCount = 0;
@@ -1378,6 +1439,9 @@
 
         // ===================== 渲染 =====================
         function renderBoard() {
+            // 每次渲染前检查皇冠日期是否有效（支持跨天自动消失）
+            updateDailyCrownStatus();
+
             const board = document.getElementById('board');
             board.innerHTML = '';
             const sorted = [...tiles]
@@ -1392,7 +1456,7 @@
                 el.style.top = tile.y + 'px';
                 el.style.zIndex = tile.layer * 10;
 
-                // “看不到下层”挑战：被盖住的牌不显示图案，只有在暴露时才显示
+                // “下层不可见”挑战：被盖住的牌不显示图案，只有在暴露时才显示
                 if (tile.exposed || !isAlignedLevel) {
                     if (tile.img) {
                         const img = document.createElement('img');
@@ -1402,6 +1466,14 @@
                     } else {
                         el.textContent = tile.label;
                     }
+                }
+
+                // 每日挑战皇冠：当天所有卡牌上方显示
+                if (dailyCrownActive) {
+                    const crown = document.createElement('span');
+                    crown.textContent = '👑';
+                    crown.style.cssText = 'position:absolute; top:-10px; left:50%; transform:translateX(-50%); font-size:16px; pointer-events:none; z-index:20;';
+                    el.appendChild(crown);
                 }
 
                 if (tile.exposed) {
@@ -1536,7 +1608,7 @@
 
         function formatLevelName(level) {
             if (level === '每日') return '🌙每日';
-            if (level === '卡槽减少' || level === '看不到下层') return '🔥' + level;
+            if (level === '卡槽减少' || level === '下层不可见') return '🔥' + level;
             return '第' + level + '关';
         }
 
@@ -1671,6 +1743,9 @@
                 clearTimeout(victoryTimer);
                 victoryTimer = null;
             }
+
+            // 检查皇冠是否仍有效
+            updateDailyCrownStatus();
 
             startRoundTimer();
 
