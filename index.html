@@ -568,6 +568,26 @@
                 font-size: 30px;
             }
         }
+
+        /* 竞速模式：红色从底部上涨，剩余10秒心跳闪烁 */
+        #speed-alert {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 0;
+            background: linear-gradient(to top, rgba(255, 0, 0, 0.6), rgba(255, 0, 0, 0.2));
+            pointer-events: none;
+            z-index: 999;
+            transition: height 1s linear;
+        }
+        #speed-alert.flash {
+            animation: heartbeatFlash 1s ease-in-out infinite;
+        }
+        @keyframes heartbeatFlash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.35; }
+        }
     </style>
 </head>
 <body>
@@ -644,6 +664,9 @@
 
     <!-- 连击指示器 -->
     <div id="combo-indicator"></div>
+
+    <!-- 竞速模式：剩余10秒红色呼吸边框 -->
+    <div id="speed-alert"></div>
 
     <div id="game">
         <div id="header">
@@ -728,6 +751,14 @@
                 name: '下层不可见',
                 config: { layerCount: 6, typeCount: 16, totalTiles: 162, aligned: true },
                 slotCapacity: 7
+            },
+            {
+                id: 'speed',
+                name: '竞速模式',
+                config: { layerCount: 25, typeCount: 10, totalTiles: 99 },
+                slotCapacity: 7,
+                speed: true,
+                timeLimit: 60
             }
         ];
 
@@ -772,6 +803,9 @@
         let challengeIndex = 0;
         // 当前是否是对齐无提示的“下层不可见”挑战
         let isAlignedLevel = false;
+        // 竞速模式倒计时
+        let speedTimer = null;
+        let speedTimeLeft = 0;
 
         // 每日挑战 100 秒皇冠状态
         const CROWN_STORAGE_KEY = 'yuelegeba_daily_crown';
@@ -1282,6 +1316,7 @@
         function checkGameStatus() {
             const allRemoved = tiles.every(t => t.removed);
             if (allRemoved) {
+                stopSpeedTimer();
                 gameOver = true;
                 isVictory = true;
                 let extraMsg = '';
@@ -1318,6 +1353,7 @@
                 if (isAlignedLevel && canEliminate()) {
                     return;
                 }
+                stopSpeedTimer();
                 gameOver = true;
                 isVictory = false;
                 comboCount = 0;
@@ -1608,12 +1644,111 @@
 
         function formatLevelName(level) {
             if (level === '每日') return '🌙每日';
-            if (level === '卡槽减少' || level === '下层不可见') return '🔥' + level;
+            if (level === '卡槽减少' || level === '下层不可见' || level === '竞速模式') return '🔥' + level;
             return '第' + level + '关';
         }
 
         function startRoundTimer() {
             roundStartTime = Date.now();
+        }
+
+        // 竞速模式：启动倒计时
+        function startSpeedTimer() {
+            stopSpeedTimer();
+            const cfg = CHALLENGE_LEVELS[challengeIndex];
+            if (modeGame !== 'challenge' || !cfg.speed) return;
+            speedTimeLeft = cfg.timeLimit || 60;
+            updateSpeedTimerDisplay();
+            speedTimer = setInterval(() => {
+                speedTimeLeft--;
+                updateSpeedTimerDisplay();
+                if (speedTimeLeft <= 0) {
+                    stopSpeedTimer();
+                    if (!gameOver) {
+                        gameOver = true;
+                        isVictory = false;
+                        comboCount = 0;
+                        finishRound(false);
+                        showFailModal();
+                    }
+                }
+            }, 1000);
+        }
+
+        // 竞速模式：停止倒计时
+        function stopSpeedTimer() {
+            if (speedTimer) {
+                clearInterval(speedTimer);
+                speedTimer = null;
+            }
+            stopHeartbeat();
+            const alert = document.getElementById('speed-alert');
+            if (alert) {
+                alert.classList.remove('flash');
+                alert.style.height = '0%';
+            }
+        }
+
+        // 竞速模式：更新倒计时显示
+        function updateSpeedTimerDisplay() {
+            if (modeGame === 'challenge' && CHALLENGE_LEVELS[challengeIndex].speed) {
+                document.getElementById('level-text').textContent = '🔥 竞速模式 ' + speedTimeLeft + 's';
+                const alert = document.getElementById('speed-alert');
+                if (alert) {
+                    const cfg = CHALLENGE_LEVELS[challengeIndex];
+                    const total = cfg.timeLimit || 60;
+                    const pct = Math.max(0, Math.min(100, (1 - speedTimeLeft / total) * 100));
+                    alert.style.height = pct + '%';
+                    if (speedTimeLeft <= 10) {
+                        alert.classList.add('flash');
+                        startHeartbeat();
+                    } else {
+                        alert.classList.remove('flash');
+                        stopHeartbeat();
+                    }
+                }
+            }
+        }
+
+        // 竞速模式：心跳音效
+        let heartbeatTimer = null;
+
+        function playHeartbeat() {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const now = audioCtx.currentTime;
+                thump(now, 0.5);
+                thump(now + 0.2, 0.35);
+            } catch (e) {}
+        }
+
+        function thump(t, vol) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(60, t);
+            osc.frequency.exponentialRampToValueAtTime(38, t + 0.12);
+            gain.gain.setValueAtTime(0.0001, t);
+            gain.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.2);
+        }
+
+        function startHeartbeat() {
+            if (heartbeatTimer) return;
+            playHeartbeat();
+            heartbeatTimer = setInterval(playHeartbeat, 1000);
+        }
+
+        function stopHeartbeat() {
+            if (heartbeatTimer) {
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+            }
         }
 
         function finishRound(win) {
@@ -1728,6 +1863,8 @@
                 clearTimeout(failModalTimer);
                 failModalTimer = null;
             }
+            // 清除竞速模式倒计时
+            stopSpeedTimer();
 
             const size = getBoardSize();
             BOARD_W = size.width || 340;
@@ -1772,6 +1909,9 @@
             renderBoard();
             renderSlot();
             renderToolbar();
+
+            // 竞速模式：启动倒计时
+            startSpeedTimer();
         }
 
         // ===================== 模式弹窗 =====================
@@ -1782,7 +1922,7 @@
                 const btn = document.createElement('button');
                 btn.className = 'mode-option';
                 btn.dataset.challengeIdx = idx;
-                btn.innerHTML = `<b>${item.name}</b><small>${item.slotCapacity} 卡槽</small>`;
+                btn.innerHTML = `<b>${item.name}</b><small>${item.speed ? (item.timeLimit + 's 限时') : (item.slotCapacity + ' 卡槽')}</small>`;
                 container.appendChild(btn);
             });
         }
