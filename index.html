@@ -126,6 +126,7 @@
             -webkit-user-select: none;
             transition: transform 0.12s, box-shadow 0.12s, filter 0.12s;
             will-change: transform;
+            overflow: hidden;
         }
         .tile.exposed {
             cursor: pointer;
@@ -156,9 +157,12 @@
                 inset 0 1px 1px rgba(255, 255, 255, 0.4);
         }
         .tile img {
-            width: 30px;
-            height: 30px;
-            object-fit: contain;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
             pointer-events: none;
         }
 
@@ -208,6 +212,8 @@
             font-size: 22px;
             border: 1px solid #eceaf2;
             transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
         }
         .slot-cell.filled {
             border-color: #b4a2d4;
@@ -215,9 +221,12 @@
             background: #fcfaff;
         }
         .slot-cell img {
-            width: 24px;
-            height: 24px;
-            object-fit: contain;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
         #slot.shake {
             animation: shake 0.4s ease;
@@ -307,7 +316,6 @@
             transform: translate(-50%, -50%) scale(1);
         }
 
-        /* ============ 新增：消除指示器（角落动态文字，无边框颜色） ============ */
         #combo-indicator {
             position: fixed;
             right: 12px;
@@ -366,7 +374,10 @@
         .modal-box {
             background: #ffffff;
             border-radius: 18px;
-            width: min(90vw, 340px);
+            width: 320px;
+            max-width: 90vw;
+            max-height: 90vh;
+            overflow-y: auto;
             padding: 22px;
             text-align: center;
             box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
@@ -381,13 +392,16 @@
             color: #3d3a55;
             font-size: 18px;
         }
-        .modal-box .level5-img {
+        /* 图片比例 8:9，宽度100%（即320px），高度自动 */
+        .modal-box img.level5-img,
+        .modal-box img.fail-img {
             width: 100%;
-            max-height: 220px;
+            height: auto;
             object-fit: cover;
             border-radius: 12px;
             margin-bottom: 12px;
             display: block;
+
         }
         .modal-box p {
             color: #555;
@@ -421,7 +435,6 @@
             color: #6d5e9c;
         }
 
-        /* ============ 排行榜 ============ */
         .leaderboard-box {
             width: min(92vw, 420px);
         }
@@ -538,11 +551,24 @@
     <div class="modal-overlay" id="level5-modal">
         <div class="modal-box">
             <h3>🎉 恭喜通关第五关！</h3>
-            <img class="level5-img" id="level5-img" alt="通关图片">
+            <img class="level5-img" id="level5-img" alt="https://origin.picgo.net/2026/08/26/2ff52e0bc9d6187df.th.jpg">
             <p>是否继续游玩第五关？</p>
             <div class="modal-buttons">
                 <button class="btn-primary" id="btn-continue-yes">是</button>
                 <button class="btn-secondary" id="btn-continue-no">否</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 失败弹窗 -->
+    <div class="modal-overlay" id="fail-modal">
+        <div class="modal-box">
+            <h3>😢 游戏失败！</h3>
+            <img class="fail-img" id="fail-img" alt="失败图片">
+            <p>从第一关开始，还是继续当前关卡？</p>
+            <div class="modal-buttons">
+                <button class="btn-primary" id="btn-fail-retry">继续本关</button>
+                <button class="btn-secondary" id="btn-fail-level1">从第一关</button>
             </div>
         </div>
     </div>
@@ -559,7 +585,7 @@
         </div>
     </div>
 
-    <!-- 新增：连击指示器 -->
+    <!-- 连击指示器 -->
     <div id="combo-indicator"></div>
 
     <div id="game">
@@ -593,35 +619,30 @@
     <script>
         // ===================== 配置与常量 =====================
         const TILE_TYPES = {
-            sheep: { label: '🐑', img: '' },
-            cat: { label: '🐱', img: '' },
-            dog: { label: '🐶', img: '' },
-            rabbit: { label: '🐰', img: '' },
-            fox: { label: '🦊', img: '' },
-            frog: { label: '🐸', img: '' },
-            tiger: { label: '🐯', img: '' },
-            cow: { label: '🐮', img: '' },
-            pig: { label: '🐷', img: '' },
-            monkey: { label: '🐵', img: '' },
-            rooster: { label: '🐔', img: '' },
-            penguin: { label: '🐧', img: '' },
-            bird: { label: '🐦', img: '' },
-            horse: { label: '🐴', img: '' },
-            octopus: { label: '🐙', img: '' },
-            butterfly: { label: '🦋', img: '' },
-            elephant: { label: '🐘', img: '' },
-            fish: { label: '🐟', img: '' },
-            dragon: { label: '🐉', img: '' },
-            snake: { label: '🐍', img: '' }
+            sheep: { label: '🐑', img: 'https://origin.picgo.net/2026/08/26/1687c930956a8aef8.png' },
+            cat: { label: '🐱', img: 'https://origin.picgo.net/2026/08/26/2c2c7aaa202b32f0d.png' },
+            dog: { label: '🐶', img: 'https://origin.picgo.net/2026/08/26/3f32fb5554e17059a.png' },
+            rabbit: { label: '🐰', img: 'https://origin.picgo.net/2026/08/26/4cb81724223e512bd.png' },
+            fox: { label: '🦊', img: 'https://origin.picgo.net/2026/08/26/58c3164d4cd600aa8.png' },
+
+            frog: { label: '🐸', img: 'https://origin.picgo.net/2026/08/26/6b60a37c72455e297.png' },
+            tiger: { label: '🐯', img: 'https://origin.picgo.net/2026/08/26/771c9280f58dec18a.png' },
+            cow: { label: '🐮', img: 'https://origin.picgo.net/2026/08/26/8c8ca13dc89b5cafd.png' },
+            pig: { label: '🐷', img: 'https://origin.picgo.net/2026/08/26/91826de35e90dd50d.png' },
+            monkey: { label: '🐵', img: 'https://origin.picgo.net/2026/08/26/1047af040c421acd5d.png' },
+            rooster: { label: '🐔', img: 'https://origin.picgo.net/2026/08/26/11dc31fa611c95938e.png' },
+            penguin: { label: '🐧', img: 'https://origin.picgo.net/2026/08/26/12e94544f3316f64eb.png' },
+            bird: { label: '🐦', img: 'https://origin.picgo.net/2026/08/26/13afcdaa3831a9a060.png' },
+            horse: { label: '🐴', img: 'https://origin.picgo.net/2026/08/26/14d04b15f33ed07710.png' },
+            octopus: { label: '🐙', img: 'https://origin.picgo.net/2026/08/26/15dd2121822741abfa.png' },
+            butterfly: { label: '🦋', img: 'https://origin.picgo.net/2026/08/26/162fa1306f273aa72c.png' },
+            elephant: { label: '🐘', img: 'https://origin.picgo.net/2026/08/26/170678462cad9713ba.png' },
+            fish: { label: '🐟', img: 'https://origin.picgo.net/2026/08/26/1813b87e3277fd4335.png' },
+            dragon: { label: '🐉', img: 'https://origin.picgo.net/2026/08/26/19e328323b18352e63.png' },
+            snake: { label: '🐍', img: 'https://origin.picgo.net/2026/08/26/204cf02c5ae9329065.png' }
         };
 
-        /* ============================================================
-         * 关卡配置说明（玩家不可见，仅供开发者）
-         * 可自定义每关的 “总牌数”：
-         *   layerCount: 层数
-         *   typeCount:   图标种类数
-         *   totalTiles:  总牌数（必须为3的倍数），留空则按 typeCount 自动计算
-         * ============================================================ */
+        /** 关卡配置 */
         const LEVELS = [
             { layerCount: 2, typeCount: 3, totalTiles: 21 },
             { layerCount: 23, typeCount: 16, totalTiles: 144 },
@@ -630,7 +651,7 @@
             { layerCount: 26, typeCount: 16, totalTiles: 162 }
         ];
 
-        // 每日挑战固定配置：20种卡牌，总牌数210，均匀分配种类
+        // 每日挑战固定配置
         const DAILY_LEVEL = { layerCount: 30, typeCount: 20, totalTiles: 210, uniformTypes: true };
 
         const CONFIG = {
@@ -642,7 +663,9 @@
 
         // ===================== 外链资源 =====================
         const CLICK_SOUND_URL = 'https://cdn.jsdelivr.net/gh/lll166/yuelegeba/音效.mp3';
-        const LEVEL5_IMAGE_URL = 'https://picsum.photos/seed/yuelegeba/game-win-sound';
+        const LEVEL5_IMAGE_URL = 'https://origin.picgo.net/2026/08/26/2ff52e0bc9d6187df.th.jpg';
+        // 失败弹窗外链图片
+        const FAIL_IMAGE_URL = 'https://origin.picgo.net/2026/08/26/loseacd89a7fabae0da6.jpg';
 
         // ===================== 歌曲列表 =====================
         const SONGS = [
@@ -662,6 +685,8 @@
         let BOARD_W = 340;
         let BOARD_H = 420;
         let victoryTimer = null;
+        // 失败弹窗定时器
+        let failModalTimer = null;
 
         // ===== 连击计数 =====
         let comboCount = 0;
@@ -926,7 +951,6 @@
             const groupCount = totalTiles / 3;
             const groups = [];
 
-            // ===== 均匀分配：保证每种卡牌数量相近 =====
             if (config.uniformTypes) {
                 const shuffledTypes = shuffle([...typeKeys]);
                 const baseGroups = Math.floor(groupCount / shuffledTypes.length);
@@ -1021,7 +1045,6 @@
                 }
             }
 
-            // 连击处理：消除则+1，否则清0（从1连击开始显示）
             if (matched) {
                 comboCount++;
                 showComboMessage(comboCount);
@@ -1066,7 +1089,13 @@
                     navigator.vibrate(200);
                 }
 
-                showMessage('💔 卡槽已满，失败！');
+                // 延迟显示失败弹窗，让槽位抖动动画先播放
+                if (!failModalTimer) {
+                    failModalTimer = setTimeout(() => {
+                        failModalTimer = null;
+                        if (gameOver) showFailModal();
+                    }, 400);
+                }
             }
         }
 
@@ -1229,10 +1258,9 @@
             messageTimer = setTimeout(() => msg.classList.remove('show'), 1800);
         }
 
-        // ===== 连击提示（独立角落动画，无边框颜色，从1开始显示） =====
         function showComboMessage(combo) {
             const el = document.getElementById('combo-indicator');
-            el.textContent = '🔥 '  + ' 消除!';
+            el.textContent = '🔥 ' + ' 消除!';
             el.classList.remove('show');
             void el.offsetWidth;
             el.classList.add('show');
@@ -1373,6 +1401,12 @@
             openModal('level5-modal');
         }
 
+        // 显示失败弹窗
+        function showFailModal() {
+            document.getElementById('fail-img').src = FAIL_IMAGE_URL;
+            openModal('fail-modal');
+        }
+
         // ===================== 背景音乐 =====================
         const bgm = document.getElementById('bgm');
         const btnMusic = document.getElementById('btn-music');
@@ -1402,6 +1436,12 @@
 
         // ===================== 初始化 =====================
         function initGame() {
+            // 清除失败弹窗定时器，防止重开后弹窗残留
+            if (failModalTimer) {
+                clearTimeout(failModalTimer);
+                failModalTimer = null;
+            }
+
             const size = getBoardSize();
             BOARD_W = size.width || 340;
             BOARD_H = size.height || 420;
@@ -1475,6 +1515,22 @@
         });
         document.getElementById('btn-continue-no').addEventListener('click', () => {
             closeModal('level5-modal');
+        });
+
+        // 失败弹窗按钮事件
+        document.getElementById('btn-fail-retry').addEventListener('click', () => {
+            closeModal('fail-modal');
+            handleRestart();
+        });
+        document.getElementById('btn-fail-level1').addEventListener('click', () => {
+            closeModal('fail-modal');
+            // 如果当前是每日挑战，则退出每日挑战回到普通模式
+            if (isDailyChallenge) {
+                isDailyChallenge = false;
+                document.getElementById('btn-daily').textContent = '🌙 每日';
+            }
+            levelIndex = 0;
+            handleRestart();
         });
 
         let resizeTimer = null;
