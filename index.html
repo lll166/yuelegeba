@@ -392,7 +392,6 @@
             color: #3d3a55;
             font-size: 18px;
         }
-        /* 图片比例 8:9，宽度100%（即320px），高度自动 */
         .modal-box img.level5-img,
         .modal-box img.fail-img {
             width: 100%;
@@ -433,6 +432,37 @@
         .btn-secondary {
             background: #f0ecf9;
             color: #6d5e9c;
+        }
+
+        /* 模式选择菜单 */
+        .mode-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .mode-option {
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid #ddd8ea;
+            background: #f7f5fc;
+            font-size: 15px;
+            cursor: pointer;
+            color: #4a4560;
+            transition: all 0.15s;
+            text-align: center;
+        }
+        .mode-option:hover {
+            background: #ece7f7;
+        }
+        .mode-option:active {
+            transform: scale(0.97);
+        }
+        .mode-option small {
+            display: block;
+            font-size: 12px;
+            color: #888;
+            margin-top: 3px;
         }
 
         .leaderboard-box {
@@ -547,12 +577,38 @@
     <!-- 点击音效（外链） -->
     <audio id="click-sound" preload="auto"></audio>
 
-    <!-- 第五关通关弹窗 -->
+    <!-- 模式选择弹窗 -->
+    <div class="modal-overlay" id="mode-modal">
+        <div class="modal-box">
+            <h3>🎮 选择模式</h3>
+            <div class="mode-options">
+                <button class="mode-option" data-mode="normal">⭐ 普通模式<small>关卡 1 - 5</small></button>
+                <button class="mode-option" data-mode="daily">🌙 每日挑战<small>每日随机牌局</small></button>
+                <button class="mode-option" id="btn-mode-challenge">🔥 挑战模式<small>选择分类</small></button>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-secondary" id="btn-mode-close">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 挑战分类弹窗 -->
+    <div class="modal-overlay" id="challenge-modal">
+        <div class="modal-box">
+            <h3>⚔️ 挑战分类</h3>
+            <div class="mode-options" id="challenge-options"></div>
+            <div class="modal-buttons">
+                <button class="btn-secondary" id="btn-challenge-back">返回</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 最终通关弹窗（第5关） -->
     <div class="modal-overlay" id="level5-modal">
         <div class="modal-box">
-            <h3>🎉 恭喜通关第五关！</h3>
+            <h3 id="final-modal-title">🎉 恭喜通关第五关！</h3>
             <img class="level5-img" id="level5-img" alt="https://origin.picgo.net/2026/08/26/2ff52e0bc9d6187df.th.jpg">
-            <p>是否继续游玩第五关？</p>
+            <p id="final-modal-text">是否继续游玩第五关？</p>
             <div class="modal-buttons">
                 <button class="btn-primary" id="btn-continue-yes">是</button>
                 <button class="btn-secondary" id="btn-continue-no">否</button>
@@ -568,7 +624,7 @@
             <p>从第一关开始，还是继续当前关卡？</p>
             <div class="modal-buttons">
                 <button class="btn-primary" id="btn-fail-retry">继续本关</button>
-                <button class="btn-secondary" id="btn-fail-level1">从第一关</button>
+                <button class="btn-secondary" id="btn-fail-level1">第一关</button>
             </div>
         </div>
     </div>
@@ -594,7 +650,7 @@
             <span class="level-badge" id="level-text">第 1 关</span>
             <span class="level-badge music-btn" id="btn-music">音乐:关</span>
             <span class="level-badge music-btn" id="btn-song">🎵:1</span>
-            <span class="level-badge music-btn" id="btn-daily">🌙 每日</span>
+            <span class="level-badge music-btn" id="btn-mode">🎮 模式</span>
             <span class="level-badge music-btn" id="btn-leaderboard">🏆 排行榜</span>
         </div>
 
@@ -642,7 +698,7 @@
             snake: { label: '🐍', img: 'https://origin.picgo.net/2026/08/26/204cf02c5ae9329065.png' }
         };
 
-        /** 关卡配置 */
+        /** 普通关卡配置（共5关） */
         const LEVELS = [
             { layerCount: 2, typeCount: 3, totalTiles: 21 },
             { layerCount: 23, typeCount: 16, totalTiles: 144 },
@@ -653,6 +709,26 @@
 
         // 每日挑战固定配置
         const DAILY_LEVEL = { layerCount: 30, typeCount: 20, totalTiles: 210, uniformTypes: true };
+
+        /**
+         * 挑战关卡分类
+         * 后续想增加新挑战，只需在数组里追加一项
+         *  config 为关卡配置，slotCapacity 为该分类的卡槽数
+         */
+        const CHALLENGE_LEVELS = [
+            {
+                id: 'slot5',
+                name: '卡槽减少',
+                config: { layerCount: 26, typeCount: 16, totalTiles: 162 },
+                slotCapacity: 5
+            },
+            {
+                id: 'blind',
+                name: '下层不可见',
+                config: { layerCount: 11, typeCount: 20, totalTiles: 220, aligned: true },
+                slotCapacity: 7
+            }
+        ];
 
         const CONFIG = {
             tileSize: 52,
@@ -687,12 +763,14 @@
         let victoryTimer = null;
         // 失败弹窗定时器
         let failModalTimer = null;
-
-        // ===== 连击计数 =====
+        // 连击计数
         let comboCount = 0;
-
-        // ===== 每日挑战模式标识 =====
-        let isDailyChallenge = false;
+        // 当前模式：normal / daily / challenge
+        let modeGame = 'normal';
+        // 挑战分类索引
+        let challengeIndex = 0;
+        // 当前是否是对齐无提示的“看不到下层”挑战
+        let isAlignedLevel = false;
 
         // ===== 随机函数（用于每日挑战种子） =====
         let randomFunc = Math.random;
@@ -841,6 +919,93 @@
             return positions;
         }
 
+        // ===================== 对齐关卡位置生成（看不到下层） =====================
+        function generateAlignedPositions(count) {
+            const positions = [];
+            const tileSize = CONFIG.tileSize;
+            if (count <= 0) return positions;
+
+            let cols = Math.max(1, Math.ceil(Math.sqrt(count * BOARD_W / BOARD_H)));
+            let rows = Math.max(1, Math.ceil(count / cols));
+            let cell = Math.min(Math.floor((BOARD_W - 10) / cols), Math.floor((BOARD_H - 10) / rows));
+            while (cell < tileSize + 2 && cols < count) {
+                cols++;
+                rows = Math.ceil(count / cols);
+                cell = Math.min(Math.floor((BOARD_W - 10) / cols), Math.floor((BOARD_H - 10) / rows));
+            }
+            cell = Math.max(cell, tileSize + 2);
+
+            const totalW = (cols - 1) * cell + tileSize;
+            const totalH = (rows - 1) * cell + tileSize;
+            const offsetX = Math.max(0, Math.floor((BOARD_W - totalW) / 2));
+            const offsetY = Math.max(0, Math.floor((BOARD_H - totalH) / 2));
+
+            for (let i = 0; i < count; i++) {
+                const r = Math.floor(i / cols);
+                const c = i % cols;
+                const x = Math.min(offsetX + c * cell, BOARD_W - tileSize);
+                const y = Math.min(offsetY + r * cell, BOARD_H - tileSize);
+                positions.push({ x: Math.max(0, x), y: Math.max(0, y) });
+            }
+            return positions;
+        }
+
+        // ===== 对齐关卡牌组生成 =====
+        function buildAlignedSolvableTiles(config) {
+            const layerCount = config.layerCount;
+            const typeCount = config.typeCount;
+            const typeKeys = Object.keys(TILE_TYPES).slice(0, typeCount);
+            const totalTiles = Math.floor((config.totalTiles !== undefined ? config.totalTiles : typeCount * CONFIG.totalTypeWeight * 3) / 3) * 3;
+            const stackCount = totalTiles / layerCount;
+            const positions = generateAlignedPositions(stackCount);
+
+            const tiles = [];
+            let id = 0;
+            for (let layer = 1; layer <= layerCount; layer++) {
+                for (let p = 0; p < positions.length; p++) {
+                    tiles.push({
+                        id: id++,
+                        layer: layer,
+                        x: positions[p].x,
+                        y: positions[p].y,
+                        removed: false,
+                        exposed: false
+                    });
+                }
+            }
+
+            // 按层从高到低排序，使每一层恰好能形成完整三连
+            const sortedTiles = [...tiles].sort((a, b) => {
+                if (a.layer !== b.layer) return b.layer - a.layer;
+                return randomFunc() - 0.5;
+            });
+
+            const groupCount = totalTiles / 3;
+            const groups = [];
+            const shuffledTypes = shuffle([...typeKeys]);
+            let gi = 0;
+            while (groups.length < groupCount) {
+                groups.push(shuffledTypes[gi % shuffledTypes.length]);
+                gi++;
+            }
+            shuffle(groups);
+
+            for (let g = 0; g < groupCount; g++) {
+                const typeKey = groups[g];
+                const info = TILE_TYPES[typeKey];
+                for (let j = 0; j < 3; j++) {
+                    const idx = g * 3 + j;
+                    if (idx < sortedTiles.length) {
+                        const tile = sortedTiles[idx];
+                        tile.type = typeKey;
+                        tile.label = info.label;
+                        tile.img = info.img;
+                    }
+                }
+            }
+            return tiles;
+        }
+
         // ===================== 关卡生成 =====================
         function distributeDecreasing(layerCount, totalTiles) {
             if (layerCount <= 1) return [totalTiles];
@@ -899,6 +1064,10 @@
         }
 
         function buildSolvableTiles(config) {
+            if (config.aligned) {
+                return buildAlignedSolvableTiles(config);
+            }
+
             const layerCount = config.layerCount;
             const typeCount = config.typeCount;
             const typeKeys = Object.keys(TILE_TYPES).slice(0, typeCount);
@@ -1006,6 +1175,14 @@
             }
         }
 
+        // ===================== 卡槽容量 =====================
+        function getSlotCapacity() {
+            if (modeGame === 'challenge') {
+                return CHALLENGE_LEVELS[challengeIndex].slotCapacity;
+            }
+            return CONFIG.slotCapacity;
+        }
+
         // ===================== 核心逻辑 =====================
         function saveSnapshot() {
             lastState = {
@@ -1018,7 +1195,7 @@
             if (gameOver) return;
             const tile = tiles.find(t => t.id === id);
             if (!tile || tile.removed || !tile.exposed) return;
-            if (slot.length >= CONFIG.slotCapacity) return;
+            if (slot.length >= getSlotCapacity()) return;
 
             playClickSound();
 
@@ -1064,11 +1241,13 @@
                 gameOver = true;
                 isVictory = true;
                 finishRound(true);
-                if (!isDailyChallenge && levelIndex === LEVELS.length - 1) {
-                    showLevel5Modal();
+                if (modeGame === 'normal' && levelIndex === LEVELS.length - 1) {
+                    showFinalLevelModal();
                 } else {
-                    if (isDailyChallenge) {
+                    if (modeGame === 'daily') {
                         showMessage('🌙 每日挑战通关！');
+                    } else if (modeGame === 'challenge') {
+                        showMessage('🔥 ' + CHALLENGE_LEVELS[challengeIndex].name + ' 通关！');
                     } else {
                         showMessage('🎉 通关成功！');
                     }
@@ -1077,7 +1256,7 @@
                 }
                 return;
             }
-            if (slot.length >= CONFIG.slotCapacity) {
+            if (slot.length >= getSlotCapacity()) {
                 gameOver = true;
                 isVictory = false;
                 comboCount = 0;
@@ -1168,10 +1347,33 @@
         }
 
         function handleRestart() {
-            if (gameOver && isVictory && !isDailyChallenge) {
+            if (gameOver && isVictory && modeGame === 'normal') {
                 levelIndex = Math.min(levelIndex + 1, LEVELS.length - 1);
             }
             initGame();
+        }
+
+        function setMode(mode, idx) {
+            if (victoryTimer) {
+                clearTimeout(victoryTimer);
+                victoryTimer = null;
+            }
+            modeGame = mode;
+            gameOver = false;
+            isVictory = false;
+            if (mode === 'normal') {
+                levelIndex = 0;
+            } else if (mode === 'challenge') {
+                challengeIndex = idx || 0;
+            }
+            initGame();
+            if (mode === 'daily') {
+                showMessage('🌙 每日挑战已开启');
+            } else if (mode === 'challenge') {
+                showMessage('🔥 ' + CHALLENGE_LEVELS[challengeIndex].name + ' 已开启');
+            } else {
+                showMessage('普通模式');
+            }
         }
 
         // ===================== 渲染 =====================
@@ -1190,13 +1392,16 @@
                 el.style.top = tile.y + 'px';
                 el.style.zIndex = tile.layer * 10;
 
-                if (tile.img) {
-                    const img = document.createElement('img');
-                    img.src = tile.img;
-                    img.alt = tile.type;
-                    el.appendChild(img);
-                } else {
-                    el.textContent = tile.label;
+                // “看不到下层”挑战：被盖住的牌不显示图案，只有在暴露时才显示
+                if (tile.exposed || !isAlignedLevel) {
+                    if (tile.img) {
+                        const img = document.createElement('img');
+                        img.src = tile.img;
+                        img.alt = tile.type;
+                        el.appendChild(img);
+                    } else {
+                        el.textContent = tile.label;
+                    }
                 }
 
                 if (tile.exposed) {
@@ -1212,7 +1417,8 @@
         function renderSlot() {
             const slotEl = document.getElementById('slot');
             slotEl.innerHTML = '';
-            for (let i = 0; i < CONFIG.slotCapacity; i++) {
+            document.getElementById('slot').style.gridTemplateColumns = `repeat(${getSlotCapacity()}, 1fr)`;
+            for (let i = 0; i < getSlotCapacity(); i++) {
                 const cell = document.createElement('div');
                 cell.className = 'slot-cell';
                 if (i < slot.length) {
@@ -1230,7 +1436,7 @@
             }
 
             const gameEl = document.getElementById('game');
-            if (slot.length >= CONFIG.slotCapacity - 2) {
+            if (slot.length >= getSlotCapacity() - 2) {
                 gameEl.classList.add('danger');
             } else {
                 gameEl.classList.remove('danger');
@@ -1328,6 +1534,12 @@
             try { localStorage.setItem(BEST_STORAGE_KEY, JSON.stringify(records)); } catch (e) {}
         }
 
+        function formatLevelName(level) {
+            if (level === '每日') return '🌙每日';
+            if (level === '卡槽减少' || level === '看不到下层') return '🔥' + level;
+            return '第' + level + '关';
+        }
+
         function startRoundTimer() {
             roundStartTime = Date.now();
         }
@@ -1335,7 +1547,7 @@
         function finishRound(win) {
             if (roundStartTime === null) return;
             const elapsed = ((Date.now() - roundStartTime) / 1000).toFixed(1);
-            const level = isDailyChallenge ? '每日' : Math.min(levelIndex + 1, LEVELS.length);
+            const level = modeGame === 'daily' ? '每日' : modeGame === 'challenge' ? CHALLENGE_LEVELS[challengeIndex].name : Math.min(levelIndex + 1, LEVELS.length);
             const record = {
                 level: level,
                 time: elapsed,
@@ -1360,7 +1572,7 @@
             if (bestRecords.length) {
                 let rows = '';
                 for (const rec of bestRecords) {
-                    rows += `<tr><td>${rec.level === '每日' ? '🌙每日' : '第' + rec.level + '关'}</td><td>${rec.bestTime}秒</td></tr>`;
+                    rows += `<tr><td>${formatLevelName(rec.level)}</td><td>${rec.bestTime}秒</td></tr>`;
                 }
                 bestHtml = `
                     <div class="best-section">
@@ -1383,7 +1595,7 @@
             }
             const rows = [...records].reverse().map(r => {
                 const cls = r.result === '成功' ? 'win' : 'fail';
-                const levelText = r.level === '每日' ? '🌙每日' : `第${r.level}关`;
+                const levelText = formatLevelName(r.level);
                 return `<tr><td>${levelText}</td><td>${r.time}秒</td><td class="${cls}">${r.result}</td><td>${r.date}</td></tr>`;
             }).join('');
             body.innerHTML = bestHtml + `<table id="leaderboard-table"><thead><tr><th>关卡</th><th>用时</th><th>结果</th><th>完成时间</th></tr></thead><tbody>${rows}</tbody></table>`;
@@ -1396,7 +1608,10 @@
             document.getElementById(id).classList.remove('show');
         }
 
-        function showLevel5Modal() {
+        function showFinalLevelModal() {
+            const finalLevel = Math.min(levelIndex + 1, LEVELS.length);
+            document.getElementById('final-modal-title').textContent = '🎉 恭喜通关第' + finalLevel + '关！';
+            document.getElementById('final-modal-text').textContent = '是否继续游玩第' + finalLevel + '关？';
             document.getElementById('level5-img').src = LEVEL5_IMAGE_URL;
             openModal('level5-modal');
         }
@@ -1459,14 +1674,22 @@
 
             startRoundTimer();
 
-            if (isDailyChallenge) {
+            if (modeGame === 'daily') {
                 randomFunc = mulberry32(getDailySeed());
                 tiles = buildSolvableTiles(DAILY_LEVEL);
                 randomFunc = Math.random;
+                isAlignedLevel = false;
                 document.getElementById('level-text').textContent = '🌙 每日挑战';
+            } else if (modeGame === 'challenge') {
+                const cfg = CHALLENGE_LEVELS[challengeIndex].config;
+                randomFunc = Math.random;
+                tiles = buildSolvableTiles(cfg);
+                isAlignedLevel = !!cfg.aligned;
+                document.getElementById('level-text').textContent = '🔥 ' + CHALLENGE_LEVELS[challengeIndex].name;
             } else {
                 randomFunc = Math.random;
                 tiles = buildSolvableTiles(LEVELS[levelIndex]);
+                isAlignedLevel = false;
                 document.getElementById('level-text').textContent = '第 ' + (levelIndex + 1) + ' 关';
             }
 
@@ -1476,23 +1699,78 @@
             renderToolbar();
         }
 
+        // ===================== 模式弹窗 =====================
+        function renderChallengeOptions() {
+            const container = document.getElementById('challenge-options');
+            container.innerHTML = '';
+            CHALLENGE_LEVELS.forEach((item, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'mode-option';
+                btn.dataset.challengeIdx = idx;
+                btn.innerHTML = `<b>${item.name}</b><small>${item.slotCapacity} 卡槽</small>`;
+                container.appendChild(btn);
+            });
+        }
+
         // ===================== 事件绑定 =====================
         document.getElementById('btn-undo').addEventListener('click', handleUndo);
         document.getElementById('btn-remove3').addEventListener('click', handleRemove3);
         document.getElementById('btn-shuffle').addEventListener('click', handleShuffle);
         document.getElementById('btn-restart').addEventListener('click', handleRestart);
 
-        const btnDaily = document.getElementById('btn-daily');
-        btnDaily.addEventListener('click', () => {
-            isDailyChallenge = !isDailyChallenge;
-            if (!isDailyChallenge) {
-                levelIndex = 0;
-            }
-            handleRestart();
-            btnDaily.textContent = isDailyChallenge ? '⭐ 普通' : '🌙 每日';
-            showMessage(isDailyChallenge ? '🌙 每日挑战已开启' : '普通模式');
+        // 模式主弹窗
+        document.getElementById('btn-mode').addEventListener('click', () => {
+            openModal('mode-modal');
+        });
+        document.getElementById('btn-mode-close').addEventListener('click', () => {
+            closeModal('mode-modal');
+        });
+        document.getElementById('mode-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeModal('mode-modal');
         });
 
+        // 模式选择
+        document.querySelectorAll('.mode-option[data-mode]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mode = btn.dataset.mode;
+                if (mode && mode !== modeGame) {
+                    setMode(mode);
+                }
+                closeModal('mode-modal');
+            });
+        });
+
+        // 挑战模式按钮 -> 打开挑战分类弹窗
+        document.getElementById('btn-mode-challenge').addEventListener('click', () => {
+            renderChallengeOptions();
+            closeModal('mode-modal');
+            openModal('challenge-modal');
+        });
+
+        // 挑战分类弹窗
+        document.getElementById('challenge-options').addEventListener('click', (e) => {
+            const btn = e.target.closest('.mode-option');
+            if (!btn) return;
+            const idx = parseInt(btn.dataset.challengeIdx, 10);
+            if (!isNaN(idx) && CHALLENGE_LEVELS[idx]) {
+                setMode('challenge', idx);
+                closeModal('challenge-modal');
+            }
+        });
+
+        document.getElementById('btn-challenge-back').addEventListener('click', () => {
+            closeModal('challenge-modal');
+            openModal('mode-modal');
+        });
+
+        document.getElementById('challenge-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                closeModal('challenge-modal');
+                openModal('mode-modal');
+            }
+        });
+
+        // 排行榜
         document.getElementById('btn-leaderboard').addEventListener('click', () => {
             renderLeaderboard();
             openModal('leaderboard-modal');
@@ -1509,6 +1787,7 @@
             if (e.target === e.currentTarget) closeModal('leaderboard-modal');
         });
 
+        // 通关弹窗
         document.getElementById('btn-continue-yes').addEventListener('click', () => {
             closeModal('level5-modal');
             handleRestart();
@@ -1517,20 +1796,21 @@
             closeModal('level5-modal');
         });
 
-        // 失败弹窗按钮事件
+        // 失败弹窗
         document.getElementById('btn-fail-retry').addEventListener('click', () => {
             closeModal('fail-modal');
             handleRestart();
         });
         document.getElementById('btn-fail-level1').addEventListener('click', () => {
             closeModal('fail-modal');
-            // 如果当前是每日挑战，则退出每日挑战回到普通模式
-            if (isDailyChallenge) {
-                isDailyChallenge = false;
-                document.getElementById('btn-daily').textContent = '🌙 每日';
+            if (modeGame !== 'normal') {
+                setMode('normal');
+            } else {
+                gameOver = false;
+                isVictory = false;
+                levelIndex = 0;
+                initGame();
             }
-            levelIndex = 0;
-            handleRestart();
         });
 
         let resizeTimer = null;
