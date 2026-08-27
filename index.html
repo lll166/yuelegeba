@@ -722,6 +722,19 @@
             snake: { label: '🐍', img: 'https://origin.picgo.net/2026/08/26/204cf02c5ae9329065.png' }
         };
 
+        // 卡牌图片预加载缓存：避免每次渲染重新请求外链导致白板/闪烁
+        const IMG_CACHE = {};
+        function preloadImages() {
+            for (const key in TILE_TYPES) {
+                const info = TILE_TYPES[key];
+                if (!info.img || IMG_CACHE[key]) continue;
+                const im = new Image();
+                im.src = info.img;
+                IMG_CACHE[key] = im;
+            }
+        }
+        preloadImages();
+
         /** 普通关卡配置（共5关） */
         const LEVELS = [
             { layerCount: 2, typeCount: 3, totalTiles: 21 },
@@ -1494,7 +1507,13 @@
 
                 // “下层不可见”挑战：被盖住的牌不显示图案，只有在暴露时才显示
                 if (tile.exposed || !isAlignedLevel) {
-                    if (tile.img) {
+                    const cached = IMG_CACHE[tile.type];
+                    if (cached && (cached.complete || cached.src)) {
+                        const img = document.createElement('img');
+                        img.src = cached.src;
+                        img.alt = tile.type;
+                        el.appendChild(img);
+                    } else if (tile.img) {
                         const img = document.createElement('img');
                         img.src = tile.img;
                         img.alt = tile.type;
