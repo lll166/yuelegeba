@@ -730,6 +730,10 @@
                 if (!info.img || IMG_CACHE[key]) continue;
                 const im = new Image();
                 im.src = info.img;
+                // 图片加载完成后重绘一次，用于把占位表情升级为真实图片
+                im.onload = function () {
+                    if (typeof gameOver !== 'undefined' && !gameOver && !isVictory) renderBoard();
+                };
                 IMG_CACHE[key] = im;
             }
         }
@@ -1508,18 +1512,19 @@
                 // “下层不可见”挑战：被盖住的牌不显示图案，只有在暴露时才显示
                 if (tile.exposed || !isAlignedLevel) {
                     const cached = IMG_CACHE[tile.type];
-                    if (cached && (cached.complete || cached.src)) {
+                    // 仅当图片已确认加载成功时才渲染图片，否则回退为表情占位，避免白板
+                    if (cached && cached.complete && cached.naturalWidth > 0) {
                         const img = document.createElement('img');
                         img.src = cached.src;
                         img.alt = tile.type;
                         el.appendChild(img);
+                    } else if (tile.label) {
+                        el.textContent = tile.label;
                     } else if (tile.img) {
                         const img = document.createElement('img');
                         img.src = tile.img;
                         img.alt = tile.type;
                         el.appendChild(img);
-                    } else {
-                        el.textContent = tile.label;
                     }
                 }
 
