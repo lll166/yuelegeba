@@ -973,6 +973,7 @@
                 args.forEach((a, i) => { s = s.replace(`{${i === 0 ? 'n' : i}}`, a); });
                 return s;
             }
+            if (val && typeof val === 'object') return val;
             return key;
         }
 
@@ -993,6 +994,7 @@
             document.getElementById('btn-mode-close').textContent = t('close');
             document.querySelector('#challenge-modal h3').textContent = t('selectCategory');
             document.getElementById('btn-challenge-back').textContent = t('back');
+            renderChallengeOptions();
             document.getElementById('btn-leaderboard-clear').textContent = t('clearRecords');
             document.getElementById('btn-leaderboard-close').textContent = t('close');
             document.querySelector('#leaderboard-modal h3').textContent = t('leaderboard');
