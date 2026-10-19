@@ -676,6 +676,7 @@
             <span class="level-badge music-btn" id="btn-song">🎵:1</span>
             <span class="level-badge music-btn" id="btn-mode">🎮 模式</span>
             <span class="level-badge music-btn" id="btn-leaderboard">🏆 排行榜</span>
+            <span class="level-badge music-btn" id="btn-lang">🌐 中文</span>
         </div>
 
         <div id="board-wrapper">
@@ -697,6 +698,336 @@
     <div id="message"></div>
 
     <script>
+        // ===================== 多语言 =====================
+        const LANG_KEY = 'yuelegeba_lang';
+        let currentLang = localStorage.getItem(LANG_KEY) || 'zh';
+
+        const LANG = {
+            zh: {
+                title: '月了个巴',
+                levelText: (n) => `第 ${n} 关`,
+                daily: '🌙 每日挑战',
+                challenge: '🔥 挑战模式',
+                normalMode: '普通模式',
+                musicOn: '音乐:开',
+                musicOff: '音乐:关',
+                mode: '🎮 模式',
+                leaderboard: '🏆 排行榜',
+                langBtn: '🌐 中文',
+                undo: '撤回',
+                remove3: '移出3',
+                shuffle: '洗牌',
+                restart: '重开',
+                selectMode: '🎮 选择模式',
+                normalModeBtn: '⭐ 普通模式',
+                dailyBtn: '🌙 每日挑战',
+                challengeBtn: '🔥 挑战模式',
+                selectCategory: '⚔️ 挑战分类',
+                close: '关闭',
+                back: '返回',
+                clearRecords: '清空记录',
+                confirmClear: '确定清空全部记录吗？',
+                victory: '🎉 通关成功！',
+                dailyVictory: '🌙 每日挑战通关！',
+                challengeVictory: '🔥 通关！',
+                continueNext: '是否继续游玩第{n}关？',
+                finalVictory: '🎉 恭喜通关第{n}关！',
+                yes: '是',
+                no: '否',
+                fail: '😢 游戏失败！',
+                failText: '从第一关开始，还是继续当前关卡？',
+                retryCurrent: '继续本关',
+                fromLevel1: '从第一关',
+                bestRecords: '🏅 分关卡最佳成绩',
+                bestTime: '最佳用时',
+                level: '关卡',
+                time: '用时',
+                result: '结果',
+                date: '完成时间',
+                win: '成功',
+                lose: '失败',
+                noRecords: '暂无记录，快来玩一局吧～',
+                noBest: '分关卡最佳成绩：暂无',
+                speedMode: '竞速模式',
+                speedTime: (s) => `🔥 竞速模式 ${s}s`,
+                eliminated: '消除!',
+                crownMsg: '恭喜你在100秒内通关游戏，你已经是月巴之王了。',
+                removedMsg: (n) => `已移出${n}张`,
+                shuffledMsg: '已洗牌',
+                undoneMsg: '已撤回',
+                modeStarted: (name) => `🔥 ${name} 已开启`,
+                dailyStarted: '🌙 每日挑战已开启',
+                challengeNames: {
+                    slot5: '卡槽减少',
+                    blind: '下层不可见',
+                    speed: '竞速模式'
+                },
+                slotLabel: (n) => `${n} 卡槽`,
+                timeLimit: (n) => `${n}s 限时`,
+                levels: '关卡 1 - 5',
+                dailyRandom: '每日随机牌局',
+                selectCat: '选择分类'
+            },
+            en: {
+                title: 'Banny',
+                levelText: (n) => `Level ${n}`,
+                daily: '🌙 Daily Challenge',
+                challenge: '🔥 Challenge',
+                normalMode: 'Normal',
+                musicOn: 'Music: On',
+                musicOff: 'Music: Off',
+                mode: '🎮 Mode',
+                leaderboard: '🏆 Leaderboard',
+                langBtn: '🌐 English',
+                undo: 'Undo',
+                remove3: 'Remove 3',
+                shuffle: 'Shuffle',
+                restart: 'Restart',
+                selectMode: '🎮 Select Mode',
+                normalModeBtn: '⭐ Normal',
+                dailyBtn: '🌙 Daily',
+                challengeBtn: '🔥 Challenge',
+                selectCategory: '⚔️ Challenge Type',
+                close: 'Close',
+                back: 'Back',
+                clearRecords: 'Clear Records',
+                confirmClear: 'Clear all records?',
+                victory: '🎉 Victory!',
+                dailyVictory: '🌙 Daily Challenge Cleared!',
+                challengeVictory: '🔥 Cleared!',
+                continueNext: 'Continue to level {n}?',
+                finalVictory: '🎉 Level {n} Cleared!',
+                yes: 'Yes',
+                no: 'No',
+                fail: '😢 Game Over!',
+                failText: 'Start from level 1 or continue current level?',
+                retryCurrent: 'Continue',
+                fromLevel1: 'Level 1',
+                bestRecords: '🏅 Best Records',
+                bestTime: 'Best Time',
+                level: 'Level',
+                time: 'Time',
+                result: 'Result',
+                date: 'Date',
+                win: 'Win',
+                lose: 'Lose',
+                noRecords: 'No records yet. Play a game!',
+                noBest: 'Best records: None',
+                speedMode: 'Speed Mode',
+                speedTime: (s) => `🔥 Speed ${s}s`,
+                eliminated: 'Match!',
+                crownMsg: 'Congratulations! You cleared in under 100s. You are the Banny King!',
+                removedMsg: (n) => `Removed ${n} tiles`,
+                shuffledMsg: 'Shuffled',
+                undoneMsg: 'Undone',
+                modeStarted: (name) => `🔥 ${name} started`,
+                dailyStarted: '🌙 Daily Challenge started',
+                challengeNames: {
+                    slot5: 'Reduced Slots',
+                    blind: 'Hidden Layers',
+                    speed: 'Speed Mode'
+                },
+                slotLabel: (n) => `${n} slots`,
+                timeLimit: (n) => `${n}s limit`,
+                levels: 'Levels 1-5',
+                dailyRandom: 'Daily random board',
+                selectCat: 'Select category'
+            },
+            ja: {
+                title: 'バニー',
+                levelText: (n) => `レベル ${n}`,
+                daily: '🌙 デイリーチャレンジ',
+                challenge: '🔥 チャレンジ',
+                normalMode: 'ノーマル',
+                musicOn: '音楽:オン',
+                musicOff: '音楽:オフ',
+                mode: '🎮 モード',
+                leaderboard: '🏆 ランキング',
+                langBtn: '🌐 日本語',
+                undo: '元に戻す',
+                remove3: '3枚除去',
+                shuffle: 'シャッフル',
+                restart: 'リスタート',
+                selectMode: '🎮 モード選択',
+                normalModeBtn: '⭐ ノーマル',
+                dailyBtn: '🌙 デイリー',
+                challengeBtn: '🔥 チャレンジ',
+                selectCategory: '⚔️ チャレンジ種類',
+                close: '閉じる',
+                back: '戻る',
+                clearRecords: '記録を消去',
+                confirmClear: '全ての記録を消去しますか？',
+                victory: '🎉 クリア！',
+                dailyVictory: '🌙 デイリーチャレンジクリア！',
+                challengeVictory: '🔥 クリア！',
+                continueNext: 'レベル{n}を続けますか？',
+                finalVictory: '🎉 レベル{n}クリア！',
+                yes: 'はい',
+                no: 'いいえ',
+                fail: '😢 ゲームオーバー！',
+                failText: 'レベル1からやり直すか、現在のレベルを続けますか？',
+                retryCurrent: '続ける',
+                fromLevel1: 'レベル1から',
+                bestRecords: '🏅 レベル別ベスト記録',
+                bestTime: 'ベストタイム',
+                level: 'レベル',
+                time: 'タイム',
+                result: '結果',
+                date: '日時',
+                win: '成功',
+                lose: '失敗',
+                noRecords: '記録がありません。プレイしてみましょう！',
+                noBest: 'ベスト記録：なし',
+                speedMode: 'スピードモード',
+                speedTime: (s) => `🔥 スピード ${s}s`,
+                eliminated: 'マッチ！',
+                crownMsg: '100秒以内にクリア！あなたはバニーキングです！',
+                removedMsg: (n) => `${n}枚除去しました`,
+                shuffledMsg: 'シャッフルしました',
+                undoneMsg: '元に戻しました',
+                modeStarted: (name) => `🔥 ${name} 開始`,
+                dailyStarted: '🌙 デイリーチャレンジ開始',
+                challengeNames: {
+                    slot5: 'スロット減少',
+                    blind: '下層不可視',
+                    speed: 'スピードモード'
+                },
+                slotLabel: (n) => `${n}スロット`,
+                timeLimit: (n) => `${n}秒制限`,
+                levels: 'レベル 1-5',
+                dailyRandom: '毎日ランダムボード',
+                selectCat: 'カテゴリ選択'
+            },
+            ko: {
+                title: '바니',
+                levelText: (n) => `레벨 ${n}`,
+                daily: '🌙 데일리 챌린지',
+                challenge: '🔥 챌린지',
+                normalMode: '노멀',
+                musicOn: '음악: 켜짐',
+                musicOff: '음악: 꺼짐',
+                mode: '🎮 모드',
+                leaderboard: '🏆 리더보드',
+                langBtn: '🌐 한국어',
+                undo: '되돌리기',
+                remove3: '3개 제거',
+                shuffle: '셔플',
+                restart: '재시작',
+                selectMode: '🎮 모드 선택',
+                normalModeBtn: '⭐ 노멀',
+                dailyBtn: '🌙 데일리',
+                challengeBtn: '🔥 챌린지',
+                selectCategory: '⚔️ 챌린지 유형',
+                close: '닫기',
+                back: '뒤로',
+                clearRecords: '기록 삭제',
+                confirmClear: '모든 기록을 삭제하시겠습니까?',
+                victory: '🎉 클리어!',
+                dailyVictory: '🌙 데일리 챌린지 클리어!',
+                challengeVictory: '🔥 클리어!',
+                continueNext: '레벨 {n}을 계속하시겠습니까?',
+                finalVictory: '🎉 레벨 {n} 클리어!',
+                yes: '예',
+                no: '아니요',
+                fail: '😢 게임 오버!',
+                failText: '레벨 1부터 다시 시작하거나 현재 레벨을 계속하시겠습니까?',
+                retryCurrent: '계속',
+                fromLevel1: '레벨 1부터',
+                bestRecords: '🏅 레벨별 베스트 기록',
+                bestTime: '베스트 타임',
+                level: '레벨',
+                time: '시간',
+                result: '결과',
+                date: '날짜',
+                win: '성공',
+                lose: '실패',
+                noRecords: '기록이 없습니다. 플레이해 보세요!',
+                noBest: '베스트 기록: 없음',
+                speedMode: '스피드 모드',
+                speedTime: (s) => `🔥 스피드 ${s}초`,
+                eliminated: '매치!',
+                crownMsg: '100초 이내 클리어! 당신은 바니 킹입니다!',
+                removedMsg: (n) => `${n}개 제거됨`,
+                shuffledMsg: '셔플됨',
+                undoneMsg: '되돌림',
+                modeStarted: (name) => `🔥 ${name} 시작`,
+                dailyStarted: '🌙 데일리 챌린지 시작',
+                challengeNames: {
+                    slot5: '슬롯 감소',
+                    blind: '하층 숨김',
+                    speed: '스피드 모드'
+                },
+                slotLabel: (n) => `${n}슬롯`,
+                timeLimit: (n) => `${n}초 제한`,
+                levels: '레벨 1-5',
+                dailyRandom: '매일 랜덤 보드',
+                selectCat: '카테고리 선택'
+            }
+        };
+
+        function t(key, ...args) {
+            const val = LANG[currentLang][key];
+            if (typeof val === 'function') return val(...args);
+            if (typeof val === 'string') {
+                let s = val;
+                args.forEach((a, i) => { s = s.replace(`{${i === 0 ? 'n' : i}}`, a); });
+                return s;
+            }
+            return key;
+        }
+
+        function applyLang() {
+            document.querySelector('.title').textContent = t('title');
+            document.getElementById('btn-lang').textContent = t('langBtn');
+            document.getElementById('btn-music').textContent = musicOn ? t('musicOn') : t('musicOff');
+            document.getElementById('btn-mode').textContent = t('mode');
+            document.getElementById('btn-leaderboard').textContent = t('leaderboard');
+            document.getElementById('btn-undo').textContent = t('undo');
+            document.getElementById('btn-remove3').textContent = t('remove3');
+            document.getElementById('btn-shuffle').textContent = t('shuffle');
+            document.getElementById('btn-restart').textContent = t('restart');
+            document.querySelector('#mode-modal h3').textContent = t('selectMode');
+            document.querySelector('#mode-modal .mode-option[data-mode="normal"]').innerHTML = `⭐ ${t('normalModeBtn')}<small>${t('levels')}</small>`;
+            document.querySelector('#mode-modal .mode-option[data-mode="daily"]').innerHTML = `🌙 ${t('dailyBtn')}<small>${t('dailyRandom')}</small>`;
+            document.getElementById('btn-mode-challenge').innerHTML = `🔥 ${t('challengeBtn')}<small>${t('selectCat')}</small>`;
+            document.getElementById('btn-mode-close').textContent = t('close');
+            document.querySelector('#challenge-modal h3').textContent = t('selectCategory');
+            document.getElementById('btn-challenge-back').textContent = t('back');
+            document.getElementById('btn-leaderboard-clear').textContent = t('clearRecords');
+            document.getElementById('btn-leaderboard-close').textContent = t('close');
+            document.querySelector('#leaderboard-modal h3').textContent = t('leaderboard');
+            document.getElementById('btn-continue-yes').textContent = t('yes');
+            document.getElementById('btn-continue-no').textContent = t('no');
+            document.getElementById('btn-fail-retry').textContent = t('retryCurrent');
+            document.getElementById('btn-fail-level1').textContent = t('fromLevel1');
+            // 更新当前关卡显示
+            if (modeGame === 'daily') {
+                document.getElementById('level-text').textContent = t('daily');
+            } else if (modeGame === 'challenge') {
+                const cfg = CHALLENGE_LEVELS[challengeIndex];
+                if (cfg.speed) {
+                    document.getElementById('level-text').textContent = t('speedTime', speedTimeLeft);
+                } else {
+                    document.getElementById('level-text').textContent = '🔥 ' + t('challengeNames')[cfg.id];
+                }
+            } else {
+                document.getElementById('level-text').textContent = t('levelText', levelIndex + 1);
+            }
+        }
+
+        function setLang(lang) {
+            currentLang = lang;
+            localStorage.setItem(LANG_KEY, lang);
+            applyLang();
+        }
+
+        // 语言切换按钮
+        document.getElementById('btn-lang').addEventListener('click', () => {
+            const langs = ['zh', 'en', 'ja', 'ko'];
+            const idx = langs.indexOf(currentLang);
+            setLang(langs[(idx + 1) % langs.length]);
+        });
+
         // ===================== 配置与常量 =====================
         const TILE_TYPES = {
             sheep: { label: '🐑', img: 'https://origin.picgo.net/2026/08/26/1687c930956a8aef8.png' },
@@ -1342,7 +1673,7 @@
                     const elapsed = ((Date.now() - roundStartTime) / 1000);
                     if (elapsed < 100) {
                         setDailyCrown();
-                        extraMsg = '恭喜你在100秒内通关游戏，你已经是月巴之王了。';
+                        extraMsg = t('crownMsg');
                     }
                 }
                 finishRound(true);
@@ -1351,11 +1682,11 @@
                 } else {
                     let msg = '';
                     if (modeGame === 'daily') {
-                        msg = '🌙 每日挑战通关！';
+                        msg = t('dailyVictory');
                     } else if (modeGame === 'challenge') {
-                        msg = '🔥 ' + CHALLENGE_LEVELS[challengeIndex].name + ' 通关！';
+                        msg = '🔥 ' + t('challengeNames')[CHALLENGE_LEVELS[challengeIndex].id] + ' ' + t('challengeVictory');
                     } else {
-                        msg = '🎉 通关成功！';
+                        msg = t('victory');
                     }
                     if (extraMsg) {
                         msg += '\n' + extraMsg;
@@ -1407,7 +1738,7 @@
             gameOver = false;
             isVictory = false;
             if (victoryTimer) clearTimeout(victoryTimer);
-            showMessage('已撤回');
+            showMessage(t('undoneMsg'));
         }
 
         function handleRemove3() {
@@ -1437,7 +1768,7 @@
             renderBoard();
             renderSlot();
             renderToolbar();
-            showMessage('已移出' + count + '张');
+            showMessage(t('removedMsg', count));
         }
 
         function handleShuffle() {
@@ -1457,7 +1788,7 @@
             updateExposure();
             renderBoard();
             renderToolbar();
-            showMessage('已洗牌');
+            showMessage(t('shuffledMsg'));
         }
 
         function handleRestart() {
@@ -1482,11 +1813,11 @@
             }
             initGame();
             if (mode === 'daily') {
-                showMessage('🌙 每日挑战已开启');
+                showMessage(t('dailyStarted'));
             } else if (mode === 'challenge') {
-                showMessage('🔥 ' + CHALLENGE_LEVELS[challengeIndex].name + ' 已开启');
+                showMessage(t('modeStarted', t('challengeNames')[CHALLENGE_LEVELS[challengeIndex].id]));
             } else {
-                showMessage('普通模式');
+                showMessage(t('normalMode'));
             }
         }
 
@@ -1598,7 +1929,7 @@
 
         function showComboMessage(combo) {
             const el = document.getElementById('combo-indicator');
-            el.textContent = '🔥 ' + ' 消除!';
+            el.textContent = '🔥 ' + ' ' + t('eliminated');
             el.classList.remove('show');
             void el.offsetWidth;
             el.classList.add('show');
@@ -1667,9 +1998,12 @@
         }
 
         function formatLevelName(level) {
-            if (level === '每日') return '🌙每日';
-            if (level === '卡槽减少' || level === '下层不可见' || level === '竞速模式') return '🔥' + level;
-            return '第' + level + '关';
+            if (level === '每日') return t('daily');
+            if (level === '卡槽减少' || level === '下层不可见' || level === '竞速模式') {
+                const map = { '卡槽减少': 'slot5', '下层不可见': 'blind', '竞速模式': 'speed' };
+                return '🔥' + t('challengeNames')[map[level]];
+            }
+            return t('levelText', level);
         }
 
         function startRoundTimer() {
@@ -1716,7 +2050,7 @@
         // 竞速模式：更新倒计时显示
         function updateSpeedTimerDisplay() {
             if (modeGame === 'challenge' && CHALLENGE_LEVELS[challengeIndex].speed) {
-                document.getElementById('level-text').textContent = '🔥 竞速模式 ' + speedTimeLeft + 's';
+                document.getElementById('level-text').textContent = t('speedTime', speedTimeLeft);
                 const alert = document.getElementById('speed-alert');
                 if (alert) {
                     const cfg = CHALLENGE_LEVELS[challengeIndex];
@@ -1803,33 +2137,34 @@
             if (bestRecords.length) {
                 let rows = '';
                 for (const rec of bestRecords) {
-                    rows += `<tr><td>${formatLevelName(rec.level)}</td><td>${rec.bestTime}秒</td></tr>`;
+                    rows += `<tr><td>${formatLevelName(rec.level)}</td><td>${rec.bestTime}s</td></tr>`;
                 }
                 bestHtml = `
                     <div class="best-section">
-                        <h4>🏅 分关卡最佳成绩</h4>
+                        <h4>${t('bestRecords')}</h4>
                         <table>
-                            <thead><tr><th>关卡</th><th>最佳用时</th></tr></thead>
+                            <thead><tr><th>${t('level')}</th><th>${t('bestTime')}</th></tr></thead>
                             <tbody>${rows}</tbody>
                         </table>
                     </div>`;
             } else {
-                bestHtml = '<div class="best-section" style="text-align:center;font-size:13px;color:#999;">分关卡最佳成绩：暂无</div>';
+                bestHtml = `<div class="best-section" style="text-align:center;font-size:13px;color:#999;">${t('noBest')}</div>`;
             }
 
             let records = [];
             try { records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { records = []; }
             const body = document.getElementById('leaderboard-body');
             if (!records.length) {
-                body.innerHTML = bestHtml + '<div class="empty-tip">暂无记录，快来玩一局吧～</div>';
+                body.innerHTML = bestHtml + `<div class="empty-tip">${t('noRecords')}</div>`;
                 return;
             }
             const rows = [...records].reverse().map(r => {
                 const cls = r.result === '成功' ? 'win' : 'fail';
                 const levelText = formatLevelName(r.level);
-                return `<tr><td>${levelText}</td><td>${r.time}秒</td><td class="${cls}">${r.result}</td><td>${r.date}</td></tr>`;
+                const resultText = r.result === '成功' ? t('win') : t('lose');
+                return `<tr><td>${levelText}</td><td>${r.time}s</td><td class="${cls}">${resultText}</td><td>${r.date}</td></tr>`;
             }).join('');
-            body.innerHTML = bestHtml + `<table id="leaderboard-table"><thead><tr><th>关卡</th><th>用时</th><th>结果</th><th>完成时间</th></tr></thead><tbody>${rows}</tbody></table>`;
+            body.innerHTML = bestHtml + `<table id="leaderboard-table"><thead><tr><th>${t('level')}</th><th>${t('time')}</th><th>${t('result')}</th><th>${t('date')}</th></tr></thead><tbody>${rows}</tbody></table>`;
         }
 
         function openModal(id) {
@@ -1841,8 +2176,8 @@
 
         function showFinalLevelModal() {
             const finalLevel = Math.min(levelIndex + 1, LEVELS.length);
-            document.getElementById('final-modal-title').textContent = '🎉 恭喜通关第' + finalLevel + '关！';
-            document.getElementById('final-modal-text').textContent = '是否继续游玩第' + finalLevel + '关？';
+            document.getElementById('final-modal-title').textContent = t('finalVictory', finalLevel);
+            document.getElementById('final-modal-text').textContent = t('continueNext', finalLevel);
             document.getElementById('level5-img').src = LEVEL5_IMAGE_URL;
             openModal('level5-modal');
         }
@@ -1850,6 +2185,8 @@
         // 显示失败弹窗
         function showFailModal() {
             document.getElementById('fail-img').src = FAIL_IMAGE_URL;
+            document.querySelector('#fail-modal h3').textContent = t('fail');
+            document.querySelector('#fail-modal p').textContent = t('failText');
             openModal('fail-modal');
         }
 
@@ -1862,11 +2199,11 @@
         btnMusic.addEventListener('click', () => {
             if (musicOn) {
                 bgm.pause();
-                btnMusic.textContent = '音乐:关';
+                btnMusic.textContent = t('musicOff');
             } else {
                 bgm.src = SONGS[currentSongIndex].url;
                 bgm.play().catch(() => {});
-                btnMusic.textContent = '音乐:开';
+                btnMusic.textContent = t('musicOn');
             }
             musicOn = !musicOn;
         });
@@ -1915,18 +2252,18 @@
                 tiles = buildSolvableTiles(DAILY_LEVEL);
                 randomFunc = Math.random;
                 isAlignedLevel = false;
-                document.getElementById('level-text').textContent = '🌙 每日挑战';
+                document.getElementById('level-text').textContent = t('daily');
             } else if (modeGame === 'challenge') {
                 const cfg = CHALLENGE_LEVELS[challengeIndex].config;
                 randomFunc = Math.random;
                 tiles = buildSolvableTiles(cfg);
                 isAlignedLevel = !!cfg.aligned;
-                document.getElementById('level-text').textContent = '🔥 ' + CHALLENGE_LEVELS[challengeIndex].name;
+                document.getElementById('level-text').textContent = '🔥 ' + t('challengeNames')[CHALLENGE_LEVELS[challengeIndex].id];
             } else {
                 randomFunc = Math.random;
                 tiles = buildSolvableTiles(LEVELS[levelIndex]);
                 isAlignedLevel = false;
-                document.getElementById('level-text').textContent = '第 ' + (levelIndex + 1) + ' 关';
+                document.getElementById('level-text').textContent = t('levelText', levelIndex + 1);
             }
 
             updateExposure();
@@ -1946,7 +2283,9 @@
                 const btn = document.createElement('button');
                 btn.className = 'mode-option';
                 btn.dataset.challengeIdx = idx;
-                btn.innerHTML = `<b>${item.name}</b><small>${item.speed ? (item.timeLimit + 's 限时') : (item.slotCapacity + ' 卡槽')}</small>`;
+                const label = t('challengeNames')[item.id];
+                const detail = item.speed ? t('timeLimit', item.timeLimit) : t('slotLabel', item.slotCapacity);
+                btn.innerHTML = `<b>${label}</b><small>${detail}</small>`;
                 container.appendChild(btn);
             });
         }
@@ -2016,7 +2355,7 @@
         });
         document.getElementById('btn-leaderboard-close').addEventListener('click', () => closeModal('leaderboard-modal'));
         document.getElementById('btn-leaderboard-clear').addEventListener('click', () => {
-            if (confirm('确定清空全部记录吗？')) {
+            if (confirm(t('confirmClear'))) {
                 localStorage.removeItem(STORAGE_KEY);
                 localStorage.removeItem(BEST_STORAGE_KEY);
                 renderLeaderboard();
@@ -2070,6 +2409,7 @@
         });
 
         initGame();
+        applyLang();
     </script>
 </body>
 </html>
